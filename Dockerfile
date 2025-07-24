@@ -1,12 +1,21 @@
-# doh_backend/Dockerfile
-FROM node:20-alpine
+# Use official Node.js image
+FROM node:18-alpine
 
+# Set working directory
 WORKDIR /app
 
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm install
 
+# Copy rest of the code
 COPY . .
 
-EXPOSE 4000
-CMD ["npm", "run", "dev"]
+# Build if needed (for TypeScript)
+RUN npm run build
+
+# Expose port (your backend port, e.g., 3001)
+EXPOSE 3001
+
+# Start the server
+CMD ["npm", "start"]
