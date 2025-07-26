@@ -109,7 +109,6 @@ model User {
   name                String
   bloodGroup          BloodGroup
   createdAt           DateTime              @default(now())
-  role                Role
   userDetails         UserDetail?
   feedbacks           Feedback[]
   auditLogs           AuditLog[]
