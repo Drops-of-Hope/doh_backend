@@ -38,11 +38,7 @@ enum CampaignType {
 enum AppointmentStatus {
   CANCELLED
   COMPLETED
-}
-
-enum SerumStatus {
-  DONATION
-  CONSULTED
+  PENDING
 }
 
 enum TestStatus {
@@ -50,6 +46,13 @@ enum TestStatus {
   SAFE
   DISCARDED
   PENDING
+}
+
+enum BagType {
+  Q
+  T
+  D
+  S
 }
 
 enum RequestStatus {
@@ -64,6 +67,34 @@ enum TransitStatus {
   FAILED
 }
 
+enum District {
+  COLOMBO
+  KALUTARA
+  GAMPAHA
+  GALLE
+  MATARA
+  HAMBANTOTA
+  ANURADHAPURA
+  POLONNARUWA
+  JAFFNA
+  MANNAR
+  KILINOCHCHI
+  KURUNEGALA
+  PUTTALAM
+  TRINCOMALEE
+  BATTICALOA
+  AMPARA
+  BADULLA
+  KANDY
+  KEGALLE
+  MATALE
+  NUWARA_ELIYA
+  MONARAGALA
+  MULLAITIVU
+  VAVUNIYA
+  RATNAPURA
+}
+
 enum EquipmentType {
   CENTRIFUGE
   REFRIGERATOR
@@ -71,34 +102,35 @@ enum EquipmentType {
 }
 
 // Models
-model Users {
-  id                   Int                    @id @default(autoincrement())
-  nic                  String                 @unique
-  email                String                 @unique
-  name                 String
-  bloodGroup           BloodGroup
-  createdAt            DateTime               @default(now())
-  role                 Role
-  userDetails          UserDetails?
-  feedbacks            Feedback[]
-  auditLogs            AuditLog[]
-  bloodDonationForms   BloodDonationForm[]
-  bloodDonations       BloodDonation[]
-  EquipmentAssignment  EquipmentAssignment[]
-  CalibrationLog       CalibrationLog[]
-  MaintenanceLog       MaintenanceLog[]
-  ConsumableAllocation ConsumableAllocation[]
-  StaffAssignment      StaffAssignment[]
+model User {
+  id                  Int                   @id @default(autoincrement())
+  nic                 String                @unique
+  email               String                @unique
+  name                String
+  bloodGroup          BloodGroup
+  createdAt           DateTime              @default(now())
+  role                Role
+  userDetails         UserDetail?
+  feedbacks           Feedback[]
+  auditLogs           AuditLog[]
+  bloodDonationForms  BloodDonationForm[]
+  bloodDonations      BloodDonation[]
+  EquipmentAssignment EquipmentAssignment[]
+  CalibrationLog      CalibrationLog[]
+  MaintenanceLog      MaintenanceLog[]
+  StaffAssignment     StaffAssignment[]
+  campaignsOrganized  Campaign[]
+  appointments        Appointment[]
 }
 
-model UserDetails {
+model UserDetail {
   id       Int    @id @default(autoincrement())
   address  String
   city     String
   district String
   type     String
   userId   Int    @unique
-  user     Users  @relation(fields: [userId], references: [id])
+  user     User   @relation(fields: [userId], references: [id])
 }
 
 model Feedback {
@@ -106,7 +138,7 @@ model Feedback {
   rating   Int
   dateTime DateTime
   userId   Int
-  user     Users    @relation(fields: [userId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
 }
 
 model AuditLog {
@@ -114,66 +146,42 @@ model AuditLog {
   timestamp DateTime
   action    String
   userId    Int
-  user      Users    @relation(fields: [userId], references: [id])
-}
-
-model Staff {
-  id         Int     @id @default(autoincrement())
-  occupation String
-  whatElse   String
-  donors     Donor[]
-}
-
-model Donor {
-  id                 Int                 @id @default(autoincrement())
-  bloodGroup         BloodGroup
-  dateOfBirth        DateTime
-  date               DateTime
-  profileFlag        Boolean
-  staffId            Int
-  staff              Staff               @relation(fields: [staffId], references: [id])
-  donorDetails       DonorDetails?
-  appointments       Appointment[]
-  bloodDonationForms BloodDonationForm[]
-  campaigns          Campaign[]
-}
-
-model DonorDetails {
-  id        Int    @id @default(autoincrement())
-  donorName String
-  address   String
-  city      String
-  district  String
-  type      String
-  donorId   Int    @unique
-  donor     Donor  @relation(fields: [donorId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model BloodDonationForm {
-  id                Int            @id @default(autoincrement())
-  dateTime          DateTime
-  bloodGroup        BloodGroup
-  donorId           Int?
-  numberOfDonations Int?
-  donated           Boolean?
-  anyDifficulty     Boolean
-  medicalAdvice     Boolean
-  feelingWell       Boolean
-  takingMedicines   Boolean
-  anySurgery        Boolean
-  pregnant          Boolean
-  haveHepatitis     Boolean
-  tattoos           Boolean
-  travelledAbroad   Boolean
-  receivedBlood     Boolean
-  chemotherapy      Boolean
-  bookAspin         Boolean
-  knowledgeAgent    Boolean
-  feverLymphNode    Boolean
-  userId            Int?
-  donor             Donor?         @relation(fields: [donorId], references: [id])
-  user              Users?         @relation(fields: [userId], references: [id])
-  bloodDonation     BloodDonation?
+  id                 Int            @id @default(autoincrement())
+  dateTime           DateTime
+  donorId            Int?
+  hasDonatedBefore   Boolean?
+  anyDifficulty      String
+  medicalAdvice      Boolean
+  feelingWell        Boolean
+  anyDiseases        Json
+  takingMedicines    Boolean
+  anySurgery         Boolean
+  workingLater       Boolean
+  pregnant           Boolean
+  haveHepatitis      Boolean
+  haveTB             Boolean
+  hadVaccination     Boolean
+  tattoos            Boolean
+  haveImprisonment   Boolean
+  travelledAbroad    Boolean
+  receivedBlood      Boolean
+  chemotherapy       Boolean
+  hadMalaria         Boolean
+  hasDengue          Boolean
+  hadLongFever       Boolean
+  hadtoothExtraction Boolean
+  bookAspirin        Boolean
+  Acknowledgement    Boolean
+  highRisk           Boolean
+  hadWeightLoss      Boolean
+  userId             Int?
+  user               User?          @relation(fields: [userId], references: [id])
+  bloodDonation      BloodDonation?
+  appointment        Appointment?
 }
 
 model BloodDonation {
@@ -182,8 +190,10 @@ model BloodDonation {
   userId            Int?
   numberOfDonations Int?
   pointsEarned      Int
+  startTime         DateTime
+  endTime           DateTime
   bloodDonationForm BloodDonationForm @relation(fields: [bdfId], references: [id])
-  user              Users?            @relation(fields: [userId], references: [id])
+  user              User?             @relation(fields: [userId], references: [id])
   systemLogs        SystemLog[]
   bloods            Blood[]
 }
@@ -207,41 +217,47 @@ model Payments {
 }
 
 model Campaign {
-  id                     Int                    @id @default(autoincrement())
+  id                     Int                   @id @default(autoincrement())
   title                  String
   type                   CampaignType
   location               String
-  donorId                Int
+  organizerId            Int
+  motivation             String
+  description            String
   startTime              DateTime
   endTime                DateTime
   expectedDonors         Int
+  contactPersonName      String
+  contactPersonPhone     String
   isApproved             Boolean
   medicalEstablishmentId Int
-  donor                  Donor                  @relation(fields: [donorId], references: [id])
-  medicalEstablishment   MedicalEstablishment   @relation(fields: [medicalEstablishmentId], references: [id])
+  medicalEstablishment   MedicalEstablishment  @relation(fields: [medicalEstablishmentId], references: [id])
   payments               Payments[]
   equipmentAssignments   EquipmentAssignment[]
-  consumableAllocations  ConsumableAllocation[]
   staffAssignments       StaffAssignment[]
+  organizer              User                  @relation(fields: [organizerId], references: [id])
+  bloodbankId            Int?
+  bloodBank              BloodBank?            @relation(fields: [bloodbankId], references: [id])
 }
 
 model Appointment {
-  id         Int               @id @default(autoincrement())
-  donorId    Int
-  scheduled  AppointmentStatus
-  serum      SerumStatus
-  donor      Donor             @relation(fields: [donorId], references: [id])
-  bloodTests BloodTest[]
+  id                  Int               @id @default(autoincrement())
+  donorId             Int
+  bdfId               Int               @unique
+  scheduled           AppointmentStatus
+  appointmentDateTime DateTime
+  bloodTests          BloodTest[]
+  donor               User              @relation(fields: [donorId], references: [id])
+  bloodDonationForm   BloodDonationForm @relation(fields: [bdfId], references: [id])
 }
 
 model Inventory {
-  id          Int         @id @default(autoincrement())
-  bloodBankId Int
-  lastChecked DateTime
-  available   Int
-  expired     Int
-  bloodBank   BloodBank   @relation(fields: [bloodBankId], references: [id])
-  bloodTests  BloodTest[]
+  id                   Int                  @id @default(autoincrement())
+  EstablishmentId      Int
+  lastChecked          DateTime
+  medicalEstablishment MedicalEstablishment @relation(fields: [EstablishmentId], references: [id])
+  blood                Blood[]
+  bloodTests           BloodTest[]
 }
 
 model BloodTest {
@@ -249,6 +265,10 @@ model BloodTest {
   bloodId       Int
   testDateTime  DateTime
   status        TestStatus
+  ABOTest       BloodGroup
+  hivTest       Boolean
+  hemoglobin    Float
+  syphilis      Boolean
   hepatitisB    Boolean
   hepatitisC    Boolean
   malaria       Boolean
@@ -263,45 +283,58 @@ model BloodTest {
 model Blood {
   id            Int            @id @default(autoincrement())
   donationId    Int
-  campaignType  CampaignType
+  inventoryId   Int?
   status        TestStatus
+  volume        Float
+  bagType       BagType
+  expiryDate    DateTime
+  consumed      Boolean        @default(false)
+  disposed      Boolean        @default(false)
   bloodDonation BloodDonation  @relation(fields: [donationId], references: [id])
   bloodTests    BloodTest[]
   bloodRequests BloodRequest[]
   bloodTransits BloodTransit[]
+  inventory     Inventory?     @relation(fields: [inventoryId], references: [id])
 }
 
 model BloodRequest {
-  id                Int            @id @default(autoincrement())
-  requestedDateTime DateTime
-  bloodType         BloodGroup
-  amount            Float
-  status            RequestStatus
-  bloodId           Int
-  blood             Blood          @relation(fields: [bloodId], references: [id])
-  bloodTransits     BloodTransit[]
+  id                 Int            @id @default(autoincrement())
+  requestedDateTime  DateTime
+  bloodTypeAndAmount Json
+  status             RequestStatus
+  bloodTransits      BloodTransit[]
+  bloodId            Int
+  blood              Blood          @relation(fields: [bloodId], references: [id])
+  bloodBankId        Int?
+  bloodBank          BloodBank?     @relation(fields: [bloodBankId], references: [id])
 }
 
 model BloodTransit {
   id                 Int           @id @default(autoincrement())
-  bloodId            Int
   transitStatus      TransitStatus
   receiverHospitalId Int
-  blood              Blood         @relation(fields: [bloodId], references: [id])
+  dispatchDateTime   DateTime
+  deliveryDateTime   DateTime
+  deliveryVehicle    String
   receiverHospital   Hospital      @relation(fields: [receiverHospitalId], references: [id])
-  BloodRequest       BloodRequest? @relation(fields: [bloodRequestId], references: [id])
+  bloodRequest       BloodRequest? @relation(fields: [bloodRequestId], references: [id])
   bloodRequestId     Int?
+  bloodId            Int
+  blood              Blood         @relation(fields: [bloodId], references: [id])
+  bloodBankId        Int?
+  bloodBank          BloodBank?    @relation(fields: [bloodBankId], references: [id])
 }
 
 model Hospital {
   id                     Int                  @id @default(autoincrement())
+  isPrivate              Boolean
   name                   String
   address                String
-  region                 String
+  district               District
   email                  String
   bloodCapacity          Int
-  isBloodBank            Boolean
   medicalEstablishmentId Int
+  inventoryId            Int?
   medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
   bloodTransits          BloodTransit[]
 }
@@ -310,17 +343,20 @@ model BloodBank {
   id                     Int                  @id @default(autoincrement())
   name                   String
   address                String
-  region                 String
+  district               District
   email                  String
   bloodCapacity          Int
   isBloodBank            Boolean
   medicalEstablishmentId Int
   medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
-  inventories            Inventory[]
+  inventoryId            Int?
+  bloodTransits          BloodTransit[]
+  bloodRequests          BloodRequest[]
+  campaigns              Campaign[]
 }
 
 model MedicalEstablishment {
-  id            Int           @id @default(autoincrement())
+  id            Int         @id @default(autoincrement())
   name          String
   address       String
   region        String
@@ -331,7 +367,7 @@ model MedicalEstablishment {
   bloodBanks    BloodBank[]
   campaigns     Campaign[]
   equipment     Equipment[]
-  Consumables   Consumables[]
+  inventory     Inventory[]
 }
 
 model Equipment {
@@ -360,7 +396,7 @@ model EquipmentAssignment {
   assignedById        Int
   equipment           Equipment @relation(fields: [equipmentId], references: [id])
   campaign            Campaign  @relation(fields: [campaignId], references: [id])
-  assignedBy          Users     @relation(fields: [assignedById], references: [id])
+  assignedBy          User      @relation(fields: [assignedById], references: [id])
 }
 
 model CalibrationSchedule {
@@ -380,7 +416,7 @@ model CalibrationLog {
   result          String
   notes           String?
   equipment       Equipment @relation(fields: [equipmentId], references: [id])
-  performedBy     Users     @relation(fields: [performedById], references: [id])
+  performedBy     User      @relation(fields: [performedById], references: [id])
 }
 
 model MaintenanceLog {
@@ -392,32 +428,7 @@ model MaintenanceLog {
   performedById   Int
   cost            Float?
   equipment       Equipment @relation(fields: [equipmentId], references: [id])
-  performedBy     Users     @relation(fields: [performedById], references: [id])
-}
-
-model Consumables {
-  id                   Int                    @id @default(autoincrement())
-  name                 String
-  type                 String
-  batchNumber          String
-  expiryDate           DateTime
-  stockLevel           Int
-  minimumStockLevel    Int
-  locatedMedEstId      Int
-  medicalEstablishment MedicalEstablishment   @relation(fields: [locatedMedEstId], references: [id])
-  allocations          ConsumableAllocation[]
-}
-
-model ConsumableAllocation {
-  id             Int         @id @default(autoincrement())
-  consumableId   Int
-  campaignId     Int
-  quantity       Int
-  allocationDate DateTime
-  allocatedById  Int
-  consumable     Consumables @relation(fields: [consumableId], references: [id])
-  campaign       Campaign    @relation(fields: [campaignId], references: [id])
-  allocatedBy    Users       @relation(fields: [allocatedById], references: [id])
+  performedBy     User      @relation(fields: [performedById], references: [id])
 }
 
 model StaffAssignment {
@@ -427,6 +438,6 @@ model StaffAssignment {
   roleInCampaign      String
   assignmentStartDate DateTime
   assignmentEndDate   DateTime?
-  user                Users     @relation(fields: [userId], references: [id])
+  user                User      @relation(fields: [userId], references: [id])
   campaign            Campaign  @relation(fields: [campaignId], references: [id])
 }
