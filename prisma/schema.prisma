@@ -123,17 +123,17 @@ model User {
 }
 
 model UserDetail {
-  id       String  @id @default(uuid())
+  id       String @id @default(uuid())
   address  String
   city     String
   district String
   type     String
-  userId   String    @unique
+  userId   String @unique
   user     User   @relation(fields: [userId], references: [id])
 }
 
 model Feedback {
-  id       String  @id @default(uuid())
+  id       String   @id @default(uuid())
   rating   Int
   dateTime DateTime
   userId   String
@@ -141,7 +141,7 @@ model Feedback {
 }
 
 model AuditLog {
-  id        String      @id @default(uuid())
+  id        String   @id @default(uuid())
   timestamp DateTime
   action    String
   userId    String
@@ -149,7 +149,7 @@ model AuditLog {
 }
 
 model BloodDonationForm {
-  id                 String            @id @default(uuid())
+  id                 String         @id @default(uuid())
   dateTime           DateTime
   donorId            String?
   hasDonatedBefore   Boolean?
@@ -184,8 +184,8 @@ model BloodDonationForm {
 }
 
 model BloodDonation {
-  id                String               @id @default(uuid())
-  bdfId             String               @unique
+  id                String            @id @default(uuid())
+  bdfId             String            @unique
   userId            String?
   numberOfDonations Int?
   pointsEarned      Int
@@ -198,7 +198,7 @@ model BloodDonation {
 }
 
 model SystemLog {
-  id              String           @id @default(uuid())
+  id              String        @id @default(uuid())
   dateTime        DateTime
   level           LogLevel
   message         String
@@ -207,7 +207,7 @@ model SystemLog {
 }
 
 model Payments {
-  id         String      @id @default(uuid())
+  id         String   @id @default(uuid())
   amount     Float
   accountId  String
   purpose    String
@@ -216,7 +216,7 @@ model Payments {
 }
 
 model Campaign {
-  id                     String                   @id @default(uuid())
+  id                     String                @id @default(uuid())
   title                  String
   type                   CampaignType
   location               String
@@ -240,9 +240,9 @@ model Campaign {
 }
 
 model Appointment {
-  id                  String               @id @default(uuid())
+  id                  String            @id @default(uuid())
   donorId             String
-  bdfId               String               @unique
+  bdfId               String            @unique
   scheduled           AppointmentStatus
   appointmentDateTime DateTime
   bloodTests          BloodTest[]
@@ -251,7 +251,7 @@ model Appointment {
 }
 
 model Inventory {
-  id                   String                  @id @default(uuid())
+  id                   String               @id @default(uuid())
   EstablishmentId      String
   lastChecked          DateTime
   medicalEstablishment MedicalEstablishment @relation(fields: [EstablishmentId], references: [id])
@@ -260,7 +260,7 @@ model Inventory {
 }
 
 model BloodTest {
-  id            String          @id @default(uuid())
+  id            String       @id @default(uuid())
   bloodId       String
   testDateTime  DateTime
   status        TestStatus
@@ -280,7 +280,7 @@ model BloodTest {
 }
 
 model Blood {
-  id            String            @id @default(uuid())
+  id            String         @id @default(uuid())
   donationId    String
   inventoryId   String?
   status        TestStatus
@@ -297,7 +297,7 @@ model Blood {
 }
 
 model BloodRequest {
-  id                 String            @id @default(uuid())
+  id                 String         @id @default(uuid())
   requestedDateTime  DateTime
   bloodTypeAndAmount Json
   status             RequestStatus
@@ -309,7 +309,7 @@ model BloodRequest {
 }
 
 model BloodTransit {
-  id                 String           @id @default(uuid())
+  id                 String        @id @default(uuid())
   transitStatus      TransitStatus
   receiverHospitalId String
   dispatchDateTime   DateTime
@@ -325,7 +325,7 @@ model BloodTransit {
 }
 
 model Hospital {
-  id                     String                  @id @default(uuid())
+  id                     String               @id @default(uuid())
   isPrivate              Boolean
   name                   String
   address                String
@@ -339,7 +339,7 @@ model Hospital {
 }
 
 model BloodBank {
-  id                     String                  @id @default(uuid())
+  id                     String               @id @default(uuid())
   name                   String
   address                String
   district               District
@@ -355,7 +355,7 @@ model BloodBank {
 }
 
 model MedicalEstablishment {
-  id            String         @id @default(uuid())
+  id            String      @id @default(uuid())
   name          String
   address       String
   region        String
@@ -370,7 +370,7 @@ model MedicalEstablishment {
 }
 
 model Equipment {
-  id                   String                   @id @default(uuid())
+  id                   String                @id @default(uuid())
   type                 EquipmentType
   serialNumber         String?
   manufacturer         String?
@@ -387,7 +387,7 @@ model Equipment {
 }
 
 model EquipmentAssignment {
-  id                  String       @id @default(uuid())
+  id                  String    @id @default(uuid())
   equipmentId         String
   campaignId          String
   assignmentStartDate DateTime
@@ -399,7 +399,7 @@ model EquipmentAssignment {
 }
 
 model CalibrationSchedule {
-  id                   String       @id @default(uuid())
+  id                   String    @id @default(uuid())
   equipmentId          String
   calibrationFrequency String
   nextCalibrationDate  DateTime
@@ -408,7 +408,7 @@ model CalibrationSchedule {
 }
 
 model CalibrationLog {
-  id              String       @id @default(uuid())
+  id              String    @id @default(uuid())
   equipmentId     String
   calibrationDate DateTime
   performedById   String
@@ -419,7 +419,7 @@ model CalibrationLog {
 }
 
 model MaintenanceLog {
-  id              String       @id @default(uuid())
+  id              String    @id @default(uuid())
   equipmentId     String
   maintenanceDate DateTime
   type            String
@@ -431,7 +431,7 @@ model MaintenanceLog {
 }
 
 model StaffAssignment {
-  id                  String       @id @default(uuid())
+  id                  String    @id @default(uuid())
   userId              String
   campaignId          String
   roleInCampaign      String
