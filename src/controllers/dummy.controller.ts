@@ -16,9 +16,14 @@ export const DummyController = {
   findOne: async (req: Request, res: Response) => {
     const id = +req.params.id;
     const dummy = await DummyService.getDummyById(id);
-    dummy ? res.json(dummy) : res.status(404).json({ message: 'Not found' });
-  },
 
+    if (dummy) {
+      res.json(dummy);
+    } else {
+      res.status(404).json({ message: 'Not found' });
+    }
+  },
+  
   update: async (req: Request, res: Response) => {
     const id = +req.params.id;
     const { dummyName } = req.body;
