@@ -1,0 +1,18 @@
+import { prisma } from '../config/db';
+import { CreateDummyInput, UpdateDummyInput } from '../types/dummy.types';
+
+export const DummyRepository = {
+  create: ({ dummyName }: CreateDummyInput) =>
+    prisma.dummy.create({ data: { dummyName } }),
+
+  findAll: () => prisma.dummy.findMany(),
+
+  findById: (id: number) =>
+    prisma.dummy.findUnique({ where: { id } }),
+
+  update: ({ id, dummyName }: UpdateDummyInput) =>
+    prisma.dummy.update({ where: { id }, data: { dummyName } }),
+
+  delete: (id: number) =>
+    prisma.dummy.delete({ where: { id } }),
+};
