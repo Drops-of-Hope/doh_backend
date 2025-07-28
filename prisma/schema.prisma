@@ -1,10 +1,11 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum BloodGroup {
@@ -442,6 +443,6 @@ model StaffAssignment {
 }
 
 model Dummy {
-  id Int @id @default(autoincrement())
+  id        Int    @id @default(autoincrement())
   dummyName String
 }
