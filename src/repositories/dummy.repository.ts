@@ -1,5 +1,5 @@
 import { prisma } from '../config/db';
-import { CreateDummyInput, UpdateDummyInput } from '../types/dummy.types';
+import { CreateDummyInput, UpdateDummyInput } from '../types';
 
 export const DummyRepository = {
   create: ({ dummyName }: CreateDummyInput) =>

@@ -8,6 +8,361 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+model User {
+  id                  String                @id @default(uuid())
+  nic                 String                @unique
+  email               String                @unique
+  name                String
+  bloodGroup          BloodGroup
+  createdAt           DateTime              @default(now())
+  appointments        Appointment[]
+  auditLogs           AuditLog[]
+  bloodDonations      BloodDonation[]
+  bloodDonationForms  BloodDonationForm[]
+  CalibrationLog      CalibrationLog[]
+  campaignsOrganized  Campaign[]
+  EquipmentAssignment EquipmentAssignment[]
+  feedbacks           Feedback[]
+  MaintenanceLog      MaintenanceLog[]
+  StaffAssignment     StaffAssignment[]
+  userDetails         UserDetail?
+}
+
+model UserDetail {
+  id       String @id @default(uuid())
+  address  String
+  city     String
+  district String
+  type     String
+  userId   String @unique
+  user     User   @relation(fields: [userId], references: [id])
+}
+
+model Feedback {
+  id       String   @id @default(uuid())
+  rating   Int
+  dateTime DateTime
+  userId   String
+  user     User     @relation(fields: [userId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime
+  action    String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model BloodDonationForm {
+  id                 String         @id @default(uuid())
+  dateTime           DateTime
+  donorId            String?
+  hasDonatedBefore   Boolean?
+  anyDifficulty      String
+  medicalAdvice      Boolean
+  feelingWell        Boolean
+  anyDiseases        Json
+  takingMedicines    Boolean
+  anySurgery         Boolean
+  workingLater       Boolean
+  pregnant           Boolean
+  haveHepatitis      Boolean
+  haveTB             Boolean
+  hadVaccination     Boolean
+  tattoos            Boolean
+  haveImprisonment   Boolean
+  travelledAbroad    Boolean
+  receivedBlood      Boolean
+  chemotherapy       Boolean
+  hadMalaria         Boolean
+  hasDengue          Boolean
+  hadLongFever       Boolean
+  hadtoothExtraction Boolean
+  bookAspirin        Boolean
+  Acknowledgement    Boolean
+  highRisk           Boolean
+  hadWeightLoss      Boolean
+  userId             String?
+  appointment        Appointment?
+  bloodDonation      BloodDonation?
+  user               User?          @relation(fields: [userId], references: [id])
+}
+
+model BloodDonation {
+  id                String            @id @default(uuid())
+  bdfId             String            @unique
+  userId            String?
+  numberOfDonations Int?
+  pointsEarned      Int
+  startTime         DateTime
+  endTime           DateTime
+  bloods            Blood[]
+  bloodDonationForm BloodDonationForm @relation(fields: [bdfId], references: [id])
+  user              User?             @relation(fields: [userId], references: [id])
+  systemLogs        SystemLog[]
+}
+
+model SystemLog {
+  id              String        @id @default(uuid())
+  dateTime        DateTime
+  level           LogLevel
+  message         String
+  bloodDonationId String
+  bloodDonation   BloodDonation @relation(fields: [bloodDonationId], references: [id])
+}
+
+model Payments {
+  id         String   @id @default(uuid())
+  amount     Float
+  accountId  String
+  purpose    String
+  campaignId String
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+}
+
+model Campaign {
+  id                     String                @id @default(uuid())
+  title                  String
+  type                   CampaignType
+  location               String
+  organizerId            String
+  motivation             String
+  description            String
+  startTime              DateTime
+  endTime                DateTime
+  expectedDonors         Int
+  contactPersonName      String
+  contactPersonPhone     String
+  isApproved             Boolean
+  medicalEstablishmentId String
+  bloodbankId            String?
+  bloodBank              BloodBank?            @relation(fields: [bloodbankId], references: [id])
+  medicalEstablishment   MedicalEstablishment  @relation(fields: [medicalEstablishmentId], references: [id])
+  organizer              User                  @relation(fields: [organizerId], references: [id])
+  equipmentAssignments   EquipmentAssignment[]
+  payments               Payments[]
+  staffAssignments       StaffAssignment[]
+}
+
+model Appointment {
+  id                  String            @id @default(uuid())
+  donorId             String
+  bdfId               String            @unique
+  scheduled           AppointmentStatus
+  appointmentDateTime DateTime
+  bloodDonationForm   BloodDonationForm @relation(fields: [bdfId], references: [id])
+  donor               User              @relation(fields: [donorId], references: [id])
+  bloodTests          BloodTest[]
+}
+
+model Inventory {
+  id                   String               @id @default(uuid())
+  EstablishmentId      String
+  lastChecked          DateTime
+  blood                Blood[]
+  bloodTests           BloodTest[]
+  medicalEstablishment MedicalEstablishment @relation(fields: [EstablishmentId], references: [id])
+}
+
+model BloodTest {
+  id            String       @id @default(uuid())
+  bloodId       String
+  testDateTime  DateTime
+  status        TestStatus
+  ABOTest       BloodGroup
+  hivTest       Boolean
+  hemoglobin    Float
+  syphilis      Boolean
+  hepatitisB    Boolean
+  hepatitisC    Boolean
+  malaria       Boolean
+  resultPending Boolean
+  appointmentId String?
+  inventoryId   String?
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  blood         Blood        @relation(fields: [bloodId], references: [id])
+  inventory     Inventory?   @relation(fields: [inventoryId], references: [id])
+}
+
+model Blood {
+  id            String         @id @default(uuid())
+  donationId    String
+  inventoryId   String?
+  status        TestStatus
+  volume        Float
+  bagType       BagType
+  expiryDate    DateTime
+  consumed      Boolean        @default(false)
+  disposed      Boolean        @default(false)
+  bloodDonation BloodDonation  @relation(fields: [donationId], references: [id])
+  inventory     Inventory?     @relation(fields: [inventoryId], references: [id])
+  bloodRequests BloodRequest[]
+  bloodTests    BloodTest[]
+  bloodTransits BloodTransit[]
+}
+
+model BloodRequest {
+  id                 String         @id @default(uuid())
+  requestedDateTime  DateTime
+  bloodTypeAndAmount Json
+  status             RequestStatus
+  bloodId            String
+  bloodBankId        String?
+  bloodBank          BloodBank?     @relation(fields: [bloodBankId], references: [id])
+  blood              Blood          @relation(fields: [bloodId], references: [id])
+  bloodTransits      BloodTransit[]
+}
+
+model BloodTransit {
+  id                 String        @id @default(uuid())
+  transitStatus      TransitStatus
+  receiverHospitalId String
+  dispatchDateTime   DateTime
+  deliveryDateTime   DateTime
+  deliveryVehicle    String
+  bloodRequestId     String?
+  bloodId            String
+  bloodBankId        String?
+  bloodBank          BloodBank?    @relation(fields: [bloodBankId], references: [id])
+  blood              Blood         @relation(fields: [bloodId], references: [id])
+  bloodRequest       BloodRequest? @relation(fields: [bloodRequestId], references: [id])
+  receiverHospital   Hospital      @relation(fields: [receiverHospitalId], references: [id])
+}
+
+model Hospital {
+  id                     String               @id @default(uuid())
+  isPrivate              Boolean
+  name                   String
+  address                String
+  district               District
+  email                  String
+  bloodCapacity          Int
+  medicalEstablishmentId String
+  inventoryId            String?
+  bloodTransits          BloodTransit[]
+  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+}
+
+model BloodBank {
+  id                     String               @id @default(uuid())
+  name                   String
+  address                String
+  district               District
+  email                  String
+  bloodCapacity          Int
+  isBloodBank            Boolean
+  medicalEstablishmentId String
+  inventoryId            String?
+  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+  bloodRequests          BloodRequest[]
+  bloodTransits          BloodTransit[]
+  campaigns              Campaign[]
+}
+
+model MedicalEstablishment {
+  id            String      @id @default(uuid())
+  name          String
+  address       String
+  region        String
+  email         String
+  bloodCapacity Int
+  isBloodBank   Boolean
+  bloodBanks    BloodBank[]
+  campaigns     Campaign[]
+  equipment     Equipment[]
+  hospitals     Hospital[]
+  inventory     Inventory[]
+  appointmentSlots AppointmentSlot[]
+}
+
+model AppointmentSlot {
+  id                    String   @id @default(uuid())
+  startTime             String  
+  endTime               String   
+  tokenNumber           Int
+  isAvailable           Boolean  @default(true)
+  medicalEstablishment  MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+  medicalEstablishmentId String
+}
+
+model Equipment {
+  id                   String                @id @default(uuid())
+  type                 EquipmentType
+  serialNumber         String?
+  manufacturer         String?
+  model                String?
+  purchaseDate         DateTime?
+  warrantyExpiry       DateTime?
+  locatedMedEstId      String
+  status               String
+  calibrationLogs      CalibrationLog[]
+  calibrationSchedules CalibrationSchedule[]
+  medicalEstablishment MedicalEstablishment  @relation(fields: [locatedMedEstId], references: [id])
+  assignments          EquipmentAssignment[]
+  maintenanceLogs      MaintenanceLog[]
+}
+
+model EquipmentAssignment {
+  id                  String    @id @default(uuid())
+  equipmentId         String
+  campaignId          String
+  assignmentStartDate DateTime
+  assignmentEndDate   DateTime?
+  assignedById        String
+  assignedBy          User      @relation(fields: [assignedById], references: [id])
+  campaign            Campaign  @relation(fields: [campaignId], references: [id])
+  equipment           Equipment @relation(fields: [equipmentId], references: [id])
+}
+
+model CalibrationSchedule {
+  id                   String    @id @default(uuid())
+  equipmentId          String
+  calibrationFrequency String
+  nextCalibrationDate  DateTime
+  alertBeforeDays      Int?
+  equipment            Equipment @relation(fields: [equipmentId], references: [id])
+}
+
+model CalibrationLog {
+  id              String    @id @default(uuid())
+  equipmentId     String
+  calibrationDate DateTime
+  performedById   String
+  result          String
+  notes           String?
+  equipment       Equipment @relation(fields: [equipmentId], references: [id])
+  performedBy     User      @relation(fields: [performedById], references: [id])
+}
+
+model MaintenanceLog {
+  id              String    @id @default(uuid())
+  equipmentId     String
+  maintenanceDate DateTime
+  type            String
+  description     String?
+  performedById   String
+  cost            Float?
+  equipment       Equipment @relation(fields: [equipmentId], references: [id])
+  performedBy     User      @relation(fields: [performedById], references: [id])
+}
+
+model StaffAssignment {
+  id                  String    @id @default(uuid())
+  userId              String
+  campaignId          String
+  roleInCampaign      String
+  assignmentStartDate DateTime
+  assignmentEndDate   DateTime?
+  campaign            Campaign  @relation(fields: [campaignId], references: [id])
+  user                User      @relation(fields: [userId], references: [id])
+}
+
+model Dummy {
+  id        Int    @id @default(autoincrement())
+  dummyName String
+}
+
 enum BloodGroup {
   A_POSITIVE
   A_NEGATIVE
@@ -99,350 +454,4 @@ enum District {
 enum EquipmentType {
   CENTRIFUGE
   REFRIGERATOR
-  // Add more as needed
-}
-
-// Models
-model User {
-  id                  String                @id @default(uuid())
-  nic                 String                @unique
-  email               String                @unique
-  name                String
-  bloodGroup          BloodGroup
-  createdAt           DateTime              @default(now())
-  userDetails         UserDetail?
-  feedbacks           Feedback[]
-  auditLogs           AuditLog[]
-  bloodDonationForms  BloodDonationForm[]
-  bloodDonations      BloodDonation[]
-  EquipmentAssignment EquipmentAssignment[]
-  CalibrationLog      CalibrationLog[]
-  MaintenanceLog      MaintenanceLog[]
-  StaffAssignment     StaffAssignment[]
-  campaignsOrganized  Campaign[]
-  appointments        Appointment[]
-}
-
-model UserDetail {
-  id       String @id @default(uuid())
-  address  String
-  city     String
-  district String
-  type     String
-  userId   String @unique
-  user     User   @relation(fields: [userId], references: [id])
-}
-
-model Feedback {
-  id       String   @id @default(uuid())
-  rating   Int
-  dateTime DateTime
-  userId   String
-  user     User     @relation(fields: [userId], references: [id])
-}
-
-model AuditLog {
-  id        String   @id @default(uuid())
-  timestamp DateTime
-  action    String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-}
-
-model BloodDonationForm {
-  id                 String         @id @default(uuid())
-  dateTime           DateTime
-  donorId            String?
-  hasDonatedBefore   Boolean?
-  anyDifficulty      String
-  medicalAdvice      Boolean
-  feelingWell        Boolean
-  anyDiseases        Json
-  takingMedicines    Boolean
-  anySurgery         Boolean
-  workingLater       Boolean
-  pregnant           Boolean
-  haveHepatitis      Boolean
-  haveTB             Boolean
-  hadVaccination     Boolean
-  tattoos            Boolean
-  haveImprisonment   Boolean
-  travelledAbroad    Boolean
-  receivedBlood      Boolean
-  chemotherapy       Boolean
-  hadMalaria         Boolean
-  hasDengue          Boolean
-  hadLongFever       Boolean
-  hadtoothExtraction Boolean
-  bookAspirin        Boolean
-  Acknowledgement    Boolean
-  highRisk           Boolean
-  hadWeightLoss      Boolean
-  userId             String?
-  user               User?          @relation(fields: [userId], references: [id])
-  bloodDonation      BloodDonation?
-  appointment        Appointment?
-}
-
-model BloodDonation {
-  id                String            @id @default(uuid())
-  bdfId             String            @unique
-  userId            String?
-  numberOfDonations Int?
-  pointsEarned      Int
-  startTime         DateTime
-  endTime           DateTime
-  bloodDonationForm BloodDonationForm @relation(fields: [bdfId], references: [id])
-  user              User?             @relation(fields: [userId], references: [id])
-  systemLogs        SystemLog[]
-  bloods            Blood[]
-}
-
-model SystemLog {
-  id              String        @id @default(uuid())
-  dateTime        DateTime
-  level           LogLevel
-  message         String
-  bloodDonationId String
-  bloodDonation   BloodDonation @relation(fields: [bloodDonationId], references: [id])
-}
-
-model Payments {
-  id         String   @id @default(uuid())
-  amount     Float
-  accountId  String
-  purpose    String
-  campaignId String
-  campaign   Campaign @relation(fields: [campaignId], references: [id])
-}
-
-model Campaign {
-  id                     String                @id @default(uuid())
-  title                  String
-  type                   CampaignType
-  location               String
-  organizerId            String
-  motivation             String
-  description            String
-  startTime              DateTime
-  endTime                DateTime
-  expectedDonors         Int
-  contactPersonName      String
-  contactPersonPhone     String
-  isApproved             Boolean
-  medicalEstablishmentId String
-  medicalEstablishment   MedicalEstablishment  @relation(fields: [medicalEstablishmentId], references: [id])
-  payments               Payments[]
-  equipmentAssignments   EquipmentAssignment[]
-  staffAssignments       StaffAssignment[]
-  organizer              User                  @relation(fields: [organizerId], references: [id])
-  bloodbankId            String?
-  bloodBank              BloodBank?            @relation(fields: [bloodbankId], references: [id])
-}
-
-model Appointment {
-  id                  String            @id @default(uuid())
-  donorId             String
-  bdfId               String            @unique
-  scheduled           AppointmentStatus
-  appointmentDateTime DateTime
-  bloodTests          BloodTest[]
-  donor               User              @relation(fields: [donorId], references: [id])
-  bloodDonationForm   BloodDonationForm @relation(fields: [bdfId], references: [id])
-}
-
-model Inventory {
-  id                   String               @id @default(uuid())
-  EstablishmentId      String
-  lastChecked          DateTime
-  medicalEstablishment MedicalEstablishment @relation(fields: [EstablishmentId], references: [id])
-  blood                Blood[]
-  bloodTests           BloodTest[]
-}
-
-model BloodTest {
-  id            String       @id @default(uuid())
-  bloodId       String
-  testDateTime  DateTime
-  status        TestStatus
-  ABOTest       BloodGroup
-  hivTest       Boolean
-  hemoglobin    Float
-  syphilis      Boolean
-  hepatitisB    Boolean
-  hepatitisC    Boolean
-  malaria       Boolean
-  resultPending Boolean
-  appointmentId String?
-  inventoryId   String?
-  blood         Blood        @relation(fields: [bloodId], references: [id])
-  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  inventory     Inventory?   @relation(fields: [inventoryId], references: [id])
-}
-
-model Blood {
-  id            String         @id @default(uuid())
-  donationId    String
-  inventoryId   String?
-  status        TestStatus
-  volume        Float
-  bagType       BagType
-  expiryDate    DateTime
-  consumed      Boolean        @default(false)
-  disposed      Boolean        @default(false)
-  bloodDonation BloodDonation  @relation(fields: [donationId], references: [id])
-  bloodTests    BloodTest[]
-  bloodRequests BloodRequest[]
-  bloodTransits BloodTransit[]
-  inventory     Inventory?     @relation(fields: [inventoryId], references: [id])
-}
-
-model BloodRequest {
-  id                 String         @id @default(uuid())
-  requestedDateTime  DateTime
-  bloodTypeAndAmount Json
-  status             RequestStatus
-  bloodTransits      BloodTransit[]
-  bloodId            String
-  blood              Blood          @relation(fields: [bloodId], references: [id])
-  bloodBankId        String?
-  bloodBank          BloodBank?     @relation(fields: [bloodBankId], references: [id])
-}
-
-model BloodTransit {
-  id                 String        @id @default(uuid())
-  transitStatus      TransitStatus
-  receiverHospitalId String
-  dispatchDateTime   DateTime
-  deliveryDateTime   DateTime
-  deliveryVehicle    String
-  receiverHospital   Hospital      @relation(fields: [receiverHospitalId], references: [id])
-  bloodRequest       BloodRequest? @relation(fields: [bloodRequestId], references: [id])
-  bloodRequestId     String?
-  bloodId            String
-  blood              Blood         @relation(fields: [bloodId], references: [id])
-  bloodBankId        String?
-  bloodBank          BloodBank?    @relation(fields: [bloodBankId], references: [id])
-}
-
-model Hospital {
-  id                     String               @id @default(uuid())
-  isPrivate              Boolean
-  name                   String
-  address                String
-  district               District
-  email                  String
-  bloodCapacity          Int
-  medicalEstablishmentId String
-  inventoryId            String?
-  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
-  bloodTransits          BloodTransit[]
-}
-
-model BloodBank {
-  id                     String               @id @default(uuid())
-  name                   String
-  address                String
-  district               District
-  email                  String
-  bloodCapacity          Int
-  isBloodBank            Boolean
-  medicalEstablishmentId String
-  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
-  inventoryId            String?
-  bloodTransits          BloodTransit[]
-  bloodRequests          BloodRequest[]
-  campaigns              Campaign[]
-}
-
-model MedicalEstablishment {
-  id            String      @id @default(uuid())
-  name          String
-  address       String
-  region        String
-  email         String
-  bloodCapacity Int
-  isBloodBank   Boolean
-  hospitals     Hospital[]
-  bloodBanks    BloodBank[]
-  campaigns     Campaign[]
-  equipment     Equipment[]
-  inventory     Inventory[]
-}
-
-model Equipment {
-  id                   String                @id @default(uuid())
-  type                 EquipmentType
-  serialNumber         String?
-  manufacturer         String?
-  model                String?
-  purchaseDate         DateTime?
-  warrantyExpiry       DateTime?
-  locatedMedEstId      String
-  status               String
-  medicalEstablishment MedicalEstablishment  @relation(fields: [locatedMedEstId], references: [id])
-  assignments          EquipmentAssignment[]
-  calibrationSchedules CalibrationSchedule[]
-  calibrationLogs      CalibrationLog[]
-  maintenanceLogs      MaintenanceLog[]
-}
-
-model EquipmentAssignment {
-  id                  String    @id @default(uuid())
-  equipmentId         String
-  campaignId          String
-  assignmentStartDate DateTime
-  assignmentEndDate   DateTime?
-  assignedById        String
-  equipment           Equipment @relation(fields: [equipmentId], references: [id])
-  campaign            Campaign  @relation(fields: [campaignId], references: [id])
-  assignedBy          User      @relation(fields: [assignedById], references: [id])
-}
-
-model CalibrationSchedule {
-  id                   String    @id @default(uuid())
-  equipmentId          String
-  calibrationFrequency String
-  nextCalibrationDate  DateTime
-  alertBeforeDays      Int?
-  equipment            Equipment @relation(fields: [equipmentId], references: [id])
-}
-
-model CalibrationLog {
-  id              String    @id @default(uuid())
-  equipmentId     String
-  calibrationDate DateTime
-  performedById   String
-  result          String
-  notes           String?
-  equipment       Equipment @relation(fields: [equipmentId], references: [id])
-  performedBy     User      @relation(fields: [performedById], references: [id])
-}
-
-model MaintenanceLog {
-  id              String    @id @default(uuid())
-  equipmentId     String
-  maintenanceDate DateTime
-  type            String
-  description     String?
-  performedById   String
-  cost            Float?
-  equipment       Equipment @relation(fields: [equipmentId], references: [id])
-  performedBy     User      @relation(fields: [performedById], references: [id])
-}
-
-model StaffAssignment {
-  id                  String    @id @default(uuid())
-  userId              String
-  campaignId          String
-  roleInCampaign      String
-  assignmentStartDate DateTime
-  assignmentEndDate   DateTime?
-  user                User      @relation(fields: [userId], references: [id])
-  campaign            Campaign  @relation(fields: [campaignId], references: [id])
-}
-
-model Dummy {
-  id        Int    @id @default(autoincrement())
-  dummyName String
 }

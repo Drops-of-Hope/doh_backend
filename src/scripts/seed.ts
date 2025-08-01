@@ -1,40 +1,37 @@
-/**
- * Database Seeding Script
- * 
- * This script populates the database with initial data for development,
- * testing, and production environments.
- * It handles:
- * - Initial user account creation with proper roles
- * - Medical establishment and facility setup
- * - Blood bank and hospital registration
- * - Equipment inventory initialization
- * - Reference data population (districts, blood types, etc.)
- * - Test donor accounts for development
- * 
- * Seed data categories:
- * 
- * Core Reference Data:
- * - Blood group types and compatibility matrix
- * - District and regional information
- * - Medical establishment types and categories
- * - Equipment types and specifications
- * 
- * User and Authentication Data:
- * - Admin user accounts with proper roles
- * - Medical staff accounts for different facilities
- * - Test donor accounts for development/staging
- * - Role and permission assignments
- * 
- * Facility and Infrastructure Data:
- * - Blood banks and medical centers
- * - Hospital network registration
- * - Equipment inventory and calibration schedules
- * - Regional distribution and logistics setup
- * 
- * Features:
- * - Environment-specific seeding (dev/staging/prod)
- * - Idempotent operations to prevent duplicate data
- * - Data validation and integrity checks
- * - Progress logging and error handling
- * - Rollback capabilities for failed seeds
- */
+//not necessary for now. will uncomment when its needed
+
+
+// import { prisma } from '../config/db';
+
+// async function main() {
+//   const existing = await prisma.medicalEstablishment.findUnique({
+//     where: { id: '3d24eb85-1b4b-4055-8f94-a712fa4ff1d2' },
+//   });
+
+//   if (!existing) {
+//     await prisma.medicalEstablishment.create({
+//       data: {
+//         id: '3d24eb85-1b4b-4055-8f94-a712fa4ff1d2',
+//         name: 'Central Blood Bank',
+//         address: '555 Elvitigala Mawatha',
+//         region: 'COLOMBO',
+//         email: 'bloodbank.doh@atmoicmai',
+//         bloodCapacity: 500,
+//         isBloodBank: true,
+//       },
+//     });
+//     console.log('Seeded successfully');
+//   } else {
+//     console.log('Record already exists.');
+//   }
+// }
+
+// main()
+//   .catch((e) => {
+//     console.error(e);
+//     process.exit(1);
+//   })
+//   .finally(() => {
+//     prisma.$disconnect();
+//   });
+
