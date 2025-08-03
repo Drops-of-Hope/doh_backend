@@ -92,6 +92,28 @@ export const AppointmentSlotsController = {
     }
   },
 
+  getAvailableSlots: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { establishmentId } = req.query;
+      if (!establishmentId || typeof establishmentId !== "string") {
+        res.status(400).json({
+          message: "Establishment ID is required and must be a string",
+        });
+        return;
+      }
+      const slots = await AppointmentSlotsService.getAvailableSlots(
+        establishmentId
+      );
+      res.status(200).json(slots);
+    } catch (error) {
+      console.error("Error retrieving available slots:", error);
+      res.status(500).json({
+        message: "Failed to retrieve available slots",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
   createAppointment: async (req: Request, res: Response): Promise<void> => {
     try {
       const { donorId, bdfId, appointmentDateTime } = req.body;

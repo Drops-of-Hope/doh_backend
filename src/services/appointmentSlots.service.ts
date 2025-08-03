@@ -61,6 +61,14 @@ export const AppointmentSlotsService = {
     return AppointmentSlotsRepository.createMany(slots);
   },
 
+  getAvailableSlots: async (
+    medicalEstablishmentId: string
+  ): Promise<AppointmentSlot[]> => {
+    return AppointmentSlotsRepository.getAvailableSlots(
+      medicalEstablishmentId
+    );
+  },
+
   createAppointment: async (data: {
     donorId: string;
     bdfId: string;

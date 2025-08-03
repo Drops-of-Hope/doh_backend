@@ -20,6 +20,19 @@ export const AppointmentSlotsRepository = {
     return createdSlots;
   },
 
+  getAvailableSlots: async (
+    medicalEstablishmentId: string
+  ): Promise<AppointmentSlot[]> => {
+    const slots = await prisma.appointmentSlot.findMany({
+      where: {
+        medicalEstablishmentId: medicalEstablishmentId,
+        isAvailable: true,
+      },
+    });
+
+    return slots;
+  },
+
   // Create appointment for a medical establishment
   createAppointment: async (data: {
     donorId: string;
