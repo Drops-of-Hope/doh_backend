@@ -14,6 +14,6 @@ export const MedicalEstablishmentsService = {
       throw new Error("Invalid date format");
     }
 
-    return MedicalEstablishmentsRepository.getAvailableSlots(establishmentId);
+    return MedicalEstablishmentsRepository.getAvailableSlots(establishmentId, date);
   },
 };
