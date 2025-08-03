@@ -71,4 +71,9 @@ export const AppointmentSlotsService = {
       scheduled: "PENDING",
     });
   },
+
+  getSlotsByMedicalEstablishment: async (medicalEstablishmentId: string) => {
+    return AppointmentSlotsRepository.getByMedicalEstablishmentId(medicalEstablishmentId);
+  },
+  
 };
