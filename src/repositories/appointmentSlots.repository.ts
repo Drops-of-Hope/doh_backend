@@ -42,7 +42,7 @@ export const AppointmentSlotsRepository = {
         donorId,
         bdfId,
         appointmentDateTime,
-        scheduled: scheduled || "PENDING",
+        scheduled: scheduled,
       },
     });
 
