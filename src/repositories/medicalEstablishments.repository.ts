@@ -30,8 +30,11 @@ export const MedicalEstablishmentsRepository = {
       }
     });
     // Note: The current schema stores startTime/endTime as strings (HH:MM format)
-    // without date components. To filter by date, the schema would need to be updated
-    // to use DateTime fields or add a separate date field.
+    // without date components. As a result, getAvailableSlots cannot filter slots by date,
+    // and will return all available slots for the given establishment regardless of date.
+    // To support date filtering, the schema should be updated to use DateTime fields or add
+    // a separate date field, and this function should be modified to accept a date parameter
+    // and filter slots accordingly.
     return availableSlots;
   },
 
