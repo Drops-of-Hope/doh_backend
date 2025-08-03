@@ -50,4 +50,9 @@ export const AppointmentSlotsService = {
 
     return AppointmentSlotsRepository.createMany(slots);
   },
+
+  getSlotsByMedicalEstablishment: async (medicalEstablishmentId: string) => {
+    return AppointmentSlotsRepository.getByMedicalEstablishmentId(medicalEstablishmentId);
+  },
+  
 };

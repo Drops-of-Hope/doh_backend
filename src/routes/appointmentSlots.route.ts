@@ -4,5 +4,6 @@ import { AppointmentSlotsController } from '../controllers/appointmentSlots.cont
 const router = Router();
 
 router.post('/', AppointmentSlotsController.create);
+router.get('/:medicalEstablishmentId', AppointmentSlotsController.getByMedicalEstablishmentId);
 
 export default router;

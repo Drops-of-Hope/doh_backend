@@ -76,4 +76,30 @@ export const AppointmentSlotsController = {
       });
     }
   },
+
+  getByMedicalEstablishmentId: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({
+          message: 'Medical establishment ID is required',
+        });
+        return;
+      }
+
+      const slots = await AppointmentSlotsService.getSlotsByMedicalEstablishment(medicalEstablishmentId);
+
+      res.status(200).json({
+        message: `Found ${slots.length} slots`,
+        slots,
+      });
+    } catch (error) {
+      console.error('Error fetching appointment slots:', error);
+      res.status(500).json({
+        message: 'Failed to retrieve appointment slots',
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    }
+  },
 };
