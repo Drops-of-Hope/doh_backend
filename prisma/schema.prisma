@@ -146,13 +146,13 @@ model Campaign {
 }
 
 model Appointment {
-  id                  String            @id @default(uuid())
+  id                  String             @id @default(uuid())
   donorId             String
-  bdfId               String            @unique
+  bdfId               String?            @unique
   scheduled           AppointmentStatus
   appointmentDateTime DateTime
-  bloodDonationForm   BloodDonationForm @relation(fields: [bdfId], references: [id])
-  donor               User              @relation(fields: [donorId], references: [id])
+  bloodDonationForm   BloodDonationForm? @relation(fields: [bdfId], references: [id], onDelete: Restrict)
+  donor               User               @relation(fields: [donorId], references: [id])
   bloodTests          BloodTest[]
 }
 
@@ -261,29 +261,29 @@ model BloodBank {
 }
 
 model MedicalEstablishment {
-  id            String      @id @default(uuid())
-  name          String
-  address       String
-  region        String
-  email         String
-  bloodCapacity Int
-  isBloodBank   Boolean
-  bloodBanks    BloodBank[]
-  campaigns     Campaign[]
-  equipment     Equipment[]
-  hospitals     Hospital[]
-  inventory     Inventory[]
+  id               String            @id @default(uuid())
+  name             String
+  address          String
+  region           String
+  email            String
+  bloodCapacity    Int
+  isBloodBank      Boolean
   appointmentSlots AppointmentSlot[]
+  bloodBanks       BloodBank[]
+  campaigns        Campaign[]
+  equipment        Equipment[]
+  hospitals        Hospital[]
+  inventory        Inventory[]
 }
 
 model AppointmentSlot {
-  id                    String   @id @default(uuid())
-  startTime             String  
-  endTime               String   
-  tokenNumber           Int
-  isAvailable           Boolean  @default(true)
-  medicalEstablishment  MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+  id                     String               @id @default(uuid())
+  startTime              String
+  endTime                String
+  donorsPerSlot          Int
+  isAvailable            Boolean              @default(true)
   medicalEstablishmentId String
+  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
 }
 
 model Equipment {

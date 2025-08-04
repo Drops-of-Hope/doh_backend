@@ -9,14 +9,14 @@ export const AppointmentSlotsRepository = {
           data: {
             startTime: slot.startTime,
             endTime: slot.endTime,
-            tokenNumber: slot.tokenNumber,
+            donorsPerSlot: slot.donorsPerSlot,
             isAvailable: slot.isAvailable,
             medicalEstablishmentId: slot.medicalEstablishmentId,
           },
         })
       )
     );
-
+    
     return createdSlots;
   },
 

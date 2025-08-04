@@ -9,6 +9,7 @@ export const AppointmentSlotsController = {
         endTime,
         appointmentDuration,
         restTime,
+        donorsPerSlot,
         medicalEstablishmentId,
       } = req.body;
 
@@ -62,6 +63,13 @@ export const AppointmentSlotsController = {
         return;
       }
 
+      if (donorsPerSlot !== undefined && (donorsPerSlot <= 0 || !Number.isInteger(donorsPerSlot))) {
+        res.status(400).json({
+          message: "Donors per slot must be a positive integer",
+        });
+        return;
+      }
+
       if (!medicalEstablishmentId) {
         res.status(400).json({
           message: "Medical establishment ID is required",
@@ -75,6 +83,7 @@ export const AppointmentSlotsController = {
           endTime,
           appointmentDuration,
           restTime,
+          donorsPerSlot,
           medicalEstablishmentId,
         }
       );
