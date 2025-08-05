@@ -4,19 +4,19 @@ import { AppointmentSlot } from "../types/index.js";
 export const AppointmentSlotsRepository = {
   createMany: async (slots: Omit<AppointmentSlot, "id">[]) => {
     const createdSlots = await prisma.$transaction(
-      slots.map((slot) =>
+      slots.map(slot =>
         prisma.appointmentSlot.create({
           data: {
             startTime: slot.startTime,
             endTime: slot.endTime,
-            tokenNumber: slot.tokenNumber,
+            donorsPerSlot: slot.donorsPerSlot,
             isAvailable: slot.isAvailable,
             medicalEstablishmentId: slot.medicalEstablishmentId,
           },
         })
       )
     );
-
+    
     return createdSlots;
   },
 
@@ -58,5 +58,18 @@ export const AppointmentSlotsRepository = {
     });
 
     return appointment;
+  },
+
+  getByMedicalEstablishmentId: async (medicalEstablishmentId: string) => {
+    const slots = await prisma.appointmentSlot.findMany({
+      where: {
+        medicalEstablishmentId,
+      },
+      orderBy: {
+        startTime: 'asc',
+      },
+    });
+
+    return slots;
   },
 };

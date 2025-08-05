@@ -9,6 +9,7 @@ export const AppointmentSlotsController = {
         endTime,
         appointmentDuration,
         restTime,
+        donorsPerSlot,
         medicalEstablishmentId,
       } = req.body;
 
@@ -62,6 +63,13 @@ export const AppointmentSlotsController = {
         return;
       }
 
+      if (donorsPerSlot !== undefined && (donorsPerSlot <= 0 || !Number.isInteger(donorsPerSlot))) {
+        res.status(400).json({
+          message: "Donors per slot must be a positive integer",
+        });
+        return;
+      }
+
       if (!medicalEstablishmentId) {
         res.status(400).json({
           message: "Medical establishment ID is required",
@@ -75,6 +83,7 @@ export const AppointmentSlotsController = {
           endTime,
           appointmentDuration,
           restTime,
+          donorsPerSlot,
           medicalEstablishmentId,
         }
       );
@@ -139,6 +148,32 @@ export const AppointmentSlotsController = {
       res.status(500).json({
         message: "Failed to create appointment",
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  getByMedicalEstablishmentId: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({
+          message: 'Medical establishment ID is required',
+        });
+        return;
+      }
+
+      const slots = await AppointmentSlotsService.getSlotsByMedicalEstablishment(medicalEstablishmentId);
+
+      res.status(200).json({
+        message: `Found ${slots.length} slots`,
+        slots,
+      });
+    } catch (error) {
+      console.error('Error fetching appointment slots:', error);
+      res.status(500).json({
+        message: 'Failed to retrieve appointment slots',
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   },

@@ -279,7 +279,7 @@ model Appointment {
   bdfId               String?            @unique
   scheduled           AppointmentStatus
   appointmentDateTime DateTime
-  bloodDonationForm   BloodDonationForm? @relation(fields: [bdfId], references: [id])
+  bloodDonationForm   BloodDonationForm? @relation(fields: [bdfId], references: [id], onDelete: Restrict)
   donor               User               @relation(fields: [donorId], references: [id])
   bloodTests          BloodTest[]
 }
@@ -397,22 +397,22 @@ model MedicalEstablishment {
   email            String
   bloodCapacity    Int
   isBloodBank      Boolean
+  appointmentSlots AppointmentSlot[]
   bloodBanks       BloodBank[]
   campaigns        Campaign[]
   equipment        Equipment[]
   hospitals        Hospital[]
   inventory        Inventory[]
-  appointmentSlots AppointmentSlot[]
 }
 
 model AppointmentSlot {
   id                     String               @id @default(uuid())
   startTime              String
   endTime                String
-  tokenNumber            Int
+  donorsPerSlot          Int
   isAvailable            Boolean              @default(true)
-  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
   medicalEstablishmentId String
+  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
 }
 
 model Equipment {

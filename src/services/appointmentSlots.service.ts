@@ -7,6 +7,7 @@ export const AppointmentSlotsService = {
     endTime,
     appointmentDuration,
     restTime = 0,
+    donorsPerSlot = 1,
     medicalEstablishmentId,
   }: CreateAppointmentSlotsInput) => {
     //to convert time string to minutes since midnight
@@ -31,7 +32,6 @@ export const AppointmentSlotsService = {
     const startMinutes = timeToMinutes(startTime);
     const endMinutes = timeToMinutes(endTime);
     let currentMinutes = startMinutes;
-    let tokenNumber = 1;
 
     // Generate slots until we can't fit another appointment
     while (currentMinutes + appointmentDuration <= endMinutes) {
@@ -41,14 +41,13 @@ export const AppointmentSlotsService = {
       slots.push({
         startTime: slotStartTime,
         endTime: slotEndTime,
-        tokenNumber: tokenNumber,
+        donorsPerSlot: donorsPerSlot,
         isAvailable: true,
         medicalEstablishmentId: medicalEstablishmentId,
       });
 
       // Move to next slot (appointment duration + rest time)
       currentMinutes += totalSlotDuration;
-      tokenNumber++; // Increment token number for next slot
     }
 
     // Check if any slots were generated
@@ -78,4 +77,9 @@ export const AppointmentSlotsService = {
       scheduled: "PENDING",
     });
   },
+
+  getSlotsByMedicalEstablishment: async (medicalEstablishmentId: string) => {
+    return AppointmentSlotsRepository.getByMedicalEstablishmentId(medicalEstablishmentId);
+  },
+  
 };
