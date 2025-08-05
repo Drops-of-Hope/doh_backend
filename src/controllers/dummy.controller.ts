@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { DummyService } from '../services/dummy.service';
+import { DummyService } from '../services/dummy.service.js';
 
 export const DummyController = {
   create: async (req: Request, res: Response) => {

@@ -1,5 +1,5 @@
-import { prisma } from "../config/db";
-import { AppointmentSlot } from "../types";
+import { prisma } from "../config/db.js";
+import { AppointmentSlot } from "../types/index.js";
 
 export const AppointmentSlotsRepository = {
   createMany: async (slots: Omit<AppointmentSlot, "id">[]) => {
@@ -36,16 +36,15 @@ export const AppointmentSlotsRepository = {
   // Create appointment for a medical establishment
   createAppointment: async (data: {
     donorId: string;
-    bdfId: string;
     appointmentDateTime: Date;
     scheduled: "PENDING" | "COMPLETED" | "CANCELLED";
   }) => {
-    const { donorId, bdfId, appointmentDateTime, scheduled } = data;
+    const { donorId, appointmentDateTime, scheduled } = data;
 
     // Validate input data
-    if (!donorId || !bdfId || !appointmentDateTime) {
+    if (!donorId || !appointmentDateTime) {
       throw new Error(
-        "Donor ID, BDF ID, and appointment date/time are required"
+        "Donor ID and appointment date/time are required"
       );
     }
 
@@ -53,7 +52,6 @@ export const AppointmentSlotsRepository = {
     const appointment = await prisma.appointment.create({
       data: {
         donorId,
-        bdfId,
         appointmentDateTime,
         scheduled: scheduled,
       },

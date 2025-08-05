@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { AppointmentSlotsService } from "../services/appointmentSlots.service";
+import { AppointmentSlotsService } from "../services/appointmentSlots.service.js";
 
 export const AppointmentSlotsController = {
   create: async (req: Request, res: Response): Promise<void> => {
@@ -116,18 +116,17 @@ export const AppointmentSlotsController = {
 
   createAppointment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { donorId, bdfId, appointmentDateTime } = req.body;
+      const { donorId, appointmentDateTime } = req.body;
 
-      if (!donorId || !bdfId || !appointmentDateTime) {
+      if (!donorId || !appointmentDateTime) {
         res.status(400).json({
-          message: "Donor ID, BDF ID, and appointment date/time are required",
+          message: "Donor ID and appointment date/time are required",
         });
         return;
       }
 
       const appointment = await AppointmentSlotsService.createAppointment({
         donorId,
-        bdfId,
         appointmentDateTime,
       });
 
