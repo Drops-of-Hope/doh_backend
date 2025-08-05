@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { AppointmentSlotsService } from "../services/appointmentSlots.service";
+import { AppointmentSlotsService } from "../services/appointmentSlots.service.js";
 
 export const AppointmentSlotsController = {
   create: async (req: Request, res: Response): Promise<void> => {
@@ -101,20 +101,41 @@ export const AppointmentSlotsController = {
     }
   },
 
+  getAvailableSlots: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { establishmentId } = req.query;
+      if (!establishmentId || typeof establishmentId !== "string") {
+        res.status(400).json({
+          message: "Establishment ID is required and must be a string",
+        });
+        return;
+      }
+      const slots = await AppointmentSlotsService.getAvailableSlots(
+        establishmentId
+      );
+      res.status(200).json(slots);
+    } catch (error) {
+      console.error("Error retrieving available slots:", error);
+      res.status(500).json({
+        message: "Failed to retrieve available slots",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
   createAppointment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { donorId, bdfId, appointmentDateTime } = req.body;
+      const { donorId, appointmentDateTime } = req.body;
 
-      if (!donorId || !bdfId || !appointmentDateTime) {
+      if (!donorId || !appointmentDateTime) {
         res.status(400).json({
-          message: "Donor ID, BDF ID, and appointment date/time are required",
+          message: "Donor ID and appointment date/time are required",
         });
         return;
       }
 
       const appointment = await AppointmentSlotsService.createAppointment({
         donorId,
-        bdfId,
         appointmentDateTime,
       });
 

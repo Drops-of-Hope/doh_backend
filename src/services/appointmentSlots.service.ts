@@ -1,5 +1,5 @@
-import { AppointmentSlotsRepository } from "../repositories/appointmentSlots.repository";
-import { CreateAppointmentSlotsInput, AppointmentSlot } from "../types";
+import { AppointmentSlotsRepository } from "../repositories/appointmentSlots.repository.js";
+import { CreateAppointmentSlotsInput, AppointmentSlot } from "../types/index.js";
 
 export const AppointmentSlotsService = {
   createAppointmentSlots: async ({
@@ -60,9 +60,16 @@ export const AppointmentSlotsService = {
     return AppointmentSlotsRepository.createMany(slots);
   },
 
+  getAvailableSlots: async (
+    medicalEstablishmentId: string
+  ): Promise<AppointmentSlot[]> => {
+    return AppointmentSlotsRepository.getAvailableSlots(
+      medicalEstablishmentId
+    );
+  },
+
   createAppointment: async (data: {
     donorId: string;
-    bdfId: string;
     appointmentDateTime: Date;
   }) => {
     return AppointmentSlotsRepository.createAppointment({

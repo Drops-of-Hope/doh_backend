@@ -1,6 +1,6 @@
 //medicalEstablishments.route.ts
 import { Router } from "express";
-import { MedicalEstablishmentsController } from "../controllers/medicalEstablishments.controller";
+import { MedicalEstablishmentsController } from "../controllers/medicalEstablishments.controller.js";
 
 const router = Router();
 

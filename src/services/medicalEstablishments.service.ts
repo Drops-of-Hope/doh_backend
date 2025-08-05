@@ -1,4 +1,4 @@
-import { MedicalEstablishmentsRepository } from "../repositories/medicalEstablishments.repository";
+import { MedicalEstablishmentsRepository } from "../repositories/medicalEstablishments.repository.js";
 //import { CreateAppointmentSlotsInput, AppointmentSlot } from '../types';
 
 export const MedicalEstablishmentsService = {
@@ -14,6 +14,6 @@ export const MedicalEstablishmentsService = {
       throw new Error("Invalid date format");
     }
 
-    return MedicalEstablishmentsRepository.getAvailableSlots(establishmentId, date);
+    return MedicalEstablishmentsRepository.getAvailableSlots(establishmentId);
   },
 };

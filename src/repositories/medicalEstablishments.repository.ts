@@ -1,4 +1,4 @@
-import { prisma } from '../config/db';
+import { prisma } from '../config/db.js';
 //import { MedicalEstablishment } from '../types';
 
 export const MedicalEstablishmentsRepository = {

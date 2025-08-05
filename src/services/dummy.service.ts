@@ -1,4 +1,4 @@
-import { DummyRepository } from '../repositories/dummy.repository';
+import { DummyRepository } from '../repositories/dummy.repository.js';
 
 export const DummyService = {
   createDummy: DummyRepository.create,
