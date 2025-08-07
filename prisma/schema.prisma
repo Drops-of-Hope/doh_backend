@@ -21,6 +21,7 @@ model User {
   donationBadge          DonationBadge           @default(BRONZE)
   profileImageUrl        String?
   isActive               Boolean                 @default(true)
+  nextEligible           DateTime?               // New field for donation eligibility
   appointments           Appointment[]
   auditLogs              AuditLog[]
   bloodDonations         BloodDonation[]
@@ -274,14 +275,16 @@ model Campaign {
 }
 
 model Appointment {
-  id                  String             @id @default(uuid())
-  donorId             String
-  bdfId               String?            @unique
-  scheduled           AppointmentStatus
-  appointmentDateTime DateTime
-  bloodDonationForm   BloodDonationForm? @relation(fields: [bdfId], references: [id], onDelete: Restrict)
-  donor               User               @relation(fields: [donorId], references: [id])
-  bloodTests          BloodTest[]
+  id              String             @id @default(uuid())
+  donorId         String
+  bdfId           String?            @unique
+  slotId          String             // New foreign key to AppointmentSlot
+  scheduled       AppointmentStatus
+  appointmentDate DateTime           // Changed from appointmentDateTime
+  bloodDonationForm BloodDonationForm? @relation(fields: [bdfId], references: [id], onDelete: Restrict)
+  donor           User               @relation(fields: [donorId], references: [id])
+  slot            AppointmentSlot    @relation(fields: [slotId], references: [id])
+  bloodTests      BloodTest[]
 }
 
 model Inventory {
@@ -413,6 +416,7 @@ model AppointmentSlot {
   isAvailable            Boolean              @default(true)
   medicalEstablishmentId String
   medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+  appointments           Appointment[]        // Add reverse relation
 }
 
 model Equipment {
