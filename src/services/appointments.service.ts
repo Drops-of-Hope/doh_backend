@@ -3,7 +3,7 @@ import { CreateAppointmentsInput } from "../types/index.js";
 
 export const AppointmentsService = {
   createAppointment: async (data: CreateAppointmentsInput) => {
-    const { donorId, slotId, appointmentDate } = data;
+    const { donorId, slotId, appointmentDate, medicalEstablishmentId } = data;
 
     // 1. Check if donor exists
     const donorExists = await AppointmentsRepository.checkUserExists(donorId);
@@ -23,11 +23,17 @@ export const AppointmentsService = {
       throw new Error("Selected time slot is not available");
     }
 
-    // 4. Create the appointment
+    // 4. Ensure medicalEstablishmentId is provided
+    if (!medicalEstablishmentId) {
+      throw new Error("Medical establishment ID is required");
+    }
+
+    // 5. Create the appointment
     const appointment = await AppointmentsRepository.createAppointment({
       donorId,
       slotId,
       appointmentDate,
+      medicalEstablishmentId,
       scheduled: "PENDING",
     });
 
@@ -36,6 +42,14 @@ export const AppointmentsService = {
 
   getAppointmentById: async (appointmentId: string) => {
     return await AppointmentsRepository.getAppointmentById(appointmentId);
+  },
+
+  // Get all appointments for a medical establishment
+  getAppointmentsByMedicalEstablishmentId: async (medicalEstablishmentId: string) => {
+    if (!medicalEstablishmentId) {
+      throw new Error("Medical establishment ID is required");
+    }
+    return await AppointmentsRepository.getAppointmentsByMedicalEstablishmentId(medicalEstablishmentId);
   },
 
   // Helper method to calculate next eligible date (typically 56 days after donation)

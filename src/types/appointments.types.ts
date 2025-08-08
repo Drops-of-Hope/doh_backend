@@ -1,4 +1,4 @@
-export type AppointmentStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED'; // Updated to match schema
+export type AppointmentStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED'; // Matches Prisma schema
 
 export interface Appointment {
   id: string;
@@ -7,10 +7,12 @@ export interface Appointment {
   slotId: string;
   scheduled: AppointmentStatus;
   appointmentDate: Date;
+  medicalEstablishmentId: string; 
 }
 
 export interface CreateAppointmentsInput {
   donorId: string;
   slotId: string;
   appointmentDate: Date;
+  medicalEstablishmentId: string;
 }
