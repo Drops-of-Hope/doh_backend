@@ -52,8 +52,9 @@ export const AppointmentSlotsRepository = {
     const appointment = await prisma.appointment.create({
       data: {
         donorId,
-        appointmentDateTime,
+        appointmentDate: appointmentDateTime,
         scheduled: scheduled,
+        slotId: "temp-slot-id", // This method needs to be updated to use proper slot
       },
     });
 

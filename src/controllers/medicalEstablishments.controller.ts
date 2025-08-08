@@ -6,8 +6,8 @@ export const MedicalEstablishmentsController = {
     req: Request,
     res: Response
   ): Promise<void> => {
-    console.log("Request received:", req.method, req.originalUrl);
-    console.log("Query parameters:", req.query);
+    // console.log("Request received:", req.method, req.originalUrl);
+    // console.log("Query parameters:", req.query);
     try {
       const { district } = req.query;
 
