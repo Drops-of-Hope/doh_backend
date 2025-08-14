@@ -4,12 +4,13 @@ import { AppointmentsService } from "../services/appointments.service.js";
 export const AppointmentsController = {
   createAppointment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { donorId, slotId, appointmentDate } = req.body;
+      const { donorId, slotId, appointmentDate, medicalEstablishmentId } = req.body;
 
       // Validate required fields
-      if (!donorId || !slotId || !appointmentDate) {
+      if (!donorId || !slotId || !appointmentDate || !medicalEstablishmentId) {
         res.status(400).json({
-          message: "Missing required fields: donorId, appointmentSlotId, and appointmentDate are required",
+          message:
+            "Missing required fields: donorId, slotId, appointmentDate, and medicalEstablishmentId are required",
         });
         return;
       }
@@ -35,6 +36,7 @@ export const AppointmentsController = {
         donorId,
         slotId,
         appointmentDate: parsedDate,
+        medicalEstablishmentId,
       });
 
       res.status(201).json({
@@ -75,6 +77,30 @@ export const AppointmentsController = {
       console.error("Error getting appointment:", error);
       res.status(500).json({
         message: "Failed to get appointment",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  // Get appointments by medical establishment ID
+  getAppointmentsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({
+          message: "Medical establishment ID is required",
+        });
+        return;
+      }
+
+      const appointments = await AppointmentsService.getAppointmentsByMedicalEstablishmentId(medicalEstablishmentId);
+
+      res.status(200).json(appointments);
+    } catch (error) {
+      console.error("Error getting appointments:", error);
+      res.status(500).json({
+        message: "Failed to get appointments",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

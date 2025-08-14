@@ -15,43 +15,43 @@ model User {
   name                   String
   bloodGroup             BloodGroup
   createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
+  donationBadge          DonationBadge           @default(BRONZE)
+  isActive               Boolean                 @default(true)
+  profileImageUrl        String?
   totalDonations         Int                     @default(0)
   totalPoints            Int                     @default(0)
-  donationBadge          DonationBadge           @default(BRONZE)
-  profileImageUrl        String?
-  isActive               Boolean                 @default(true)
-  nextEligible           DateTime?               // New field for donation eligibility
+  updatedAt              DateTime                @updatedAt
+  nextEligible           DateTime?
+  activities             Activity[]
   appointments           Appointment[]
   auditLogs              AuditLog[]
   bloodDonations         BloodDonation[]
   bloodDonationForms     BloodDonationForm[]
   CalibrationLog         CalibrationLog[]
   campaignsOrganized     Campaign[]
+  campaignParticipations CampaignParticipation[]
+  emergencyRequests      EmergencyRequest[]
   EquipmentAssignment    EquipmentAssignment[]
   feedbacks              Feedback[]
   MaintenanceLog         MaintenanceLog[]
+  notifications          Notification[]
+  qrScans                QRScan[]
   StaffAssignment        StaffAssignment[]
   userDetails            UserDetail?
-  campaignParticipations CampaignParticipation[]
-  qrScans                QRScan[]
   homeStats              UserHomeStats?
-  activities             Activity[]
-  emergencyRequests      EmergencyRequest[]
-  notifications          Notification[]
 }
 
 model UserDetail {
   id                String   @id @default(uuid())
   address           String
   city              String
-  district          District
-  phoneNumber       String?
+  userId            String   @unique
+  allergies         Json?
   emergencyContact  String?
   medicalConditions Json?
-  allergies         Json?
+  phoneNumber       String?
+  district          District
   type              UserType @default(DONOR)
-  userId            String   @unique
   user              User     @relation(fields: [userId], references: [id])
 }
 
@@ -108,8 +108,8 @@ model CampaignParticipation {
   pointsEarned      Int                 @default(0)
   feedback          String?
   feedbackRating    Int?
-  user              User                @relation(fields: [userId], references: [id])
   campaign          Campaign            @relation(fields: [campaignId], references: [id])
+  user              User                @relation(fields: [userId], references: [id])
   qrScans           QRScan[]
 }
 
@@ -122,17 +122,17 @@ model QRScan {
   scanType                QRScanType
   scanDateTime            DateTime               @default(now())
   metadata                Json?
-  scanner                 User                   @relation(fields: [scannerId], references: [id])
   campaign                Campaign?              @relation(fields: [campaignId], references: [id])
   campaignParticipation   CampaignParticipation? @relation(fields: [campaignParticipationId], references: [id])
+  scanner                 User                   @relation(fields: [scannerId], references: [id])
 }
 
 model EmergencyRequest {
   id                  String              @id @default(uuid())
   title               String
   description         String
-  bloodTypesNeeded    Json // Array of blood types needed
-  quantityNeeded      Json // Blood type to quantity mapping
+  bloodTypesNeeded    Json
+  quantityNeeded      Json
   urgencyLevel        UrgencyLevel
   hospitalId          String
   requestedById       String
@@ -152,7 +152,7 @@ model EmergencyResponse {
   id                 String           @id @default(uuid())
   emergencyRequestId String
   userId             String?
-  responseType       String // "DONATION_OFFER", "BLOOD_AVAILABILITY", etc.
+  responseType       String
   message            String?
   contactInfo        Json?
   createdAt          DateTime         @default(now())
@@ -253,38 +253,40 @@ model Campaign {
   startTime              DateTime
   endTime                DateTime
   expectedDonors         Int
-  actualDonors           Int                     @default(0)
   contactPersonName      String
   contactPersonPhone     String
   isApproved             Boolean
-  isActive               Boolean                 @default(true)
-  imageUrl               String?
-  requirements           Json?
   medicalEstablishmentId String
   bloodbankId            String?
+  actualDonors           Int                     @default(0)
   createdAt              DateTime                @default(now())
+  imageUrl               String?
+  isActive               Boolean                 @default(true)
+  requirements           Json?
   updatedAt              DateTime                @updatedAt
   bloodBank              BloodBank?              @relation(fields: [bloodbankId], references: [id])
   medicalEstablishment   MedicalEstablishment    @relation(fields: [medicalEstablishmentId], references: [id])
   organizer              User                    @relation(fields: [organizerId], references: [id])
+  participations         CampaignParticipation[]
   equipmentAssignments   EquipmentAssignment[]
   payments               Payments[]
-  staffAssignments       StaffAssignment[]
-  participations         CampaignParticipation[]
   qrScans                QRScan[]
+  staffAssignments       StaffAssignment[]
 }
 
 model Appointment {
-  id              String             @id @default(uuid())
-  donorId         String
-  bdfId           String?            @unique
-  slotId          String             // New foreign key to AppointmentSlot
-  scheduled       AppointmentStatus
-  appointmentDate DateTime           // Changed from appointmentDateTime
+  id                String             @id @default(uuid())
+  donorId           String
+  medicalEstablishmentId String
+  bdfId             String?            @unique
+  scheduled         AppointmentStatus
+  appointmentDate   DateTime
+  slotId            String
   bloodDonationForm BloodDonationForm? @relation(fields: [bdfId], references: [id], onDelete: Restrict)
-  donor           User               @relation(fields: [donorId], references: [id])
-  slot            AppointmentSlot    @relation(fields: [slotId], references: [id])
-  bloodTests      BloodTest[]
+  donor             User               @relation(fields: [donorId], references: [id])
+  medicalEstablishment MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+  slot              AppointmentSlot    @relation(fields: [slotId], references: [id])
+  bloodTests        BloodTest[]
 }
 
 model Inventory {
@@ -372,8 +374,8 @@ model Hospital {
   medicalEstablishmentId String
   inventoryId            String?
   bloodTransits          BloodTransit[]
-  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
   emergencyRequests      EmergencyRequest[]
+  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
 }
 
 model BloodBank {
@@ -401,6 +403,7 @@ model MedicalEstablishment {
   bloodCapacity    Int
   isBloodBank      Boolean
   appointmentSlots AppointmentSlot[]
+  appointments     Appointment[]
   bloodBanks       BloodBank[]
   campaigns        Campaign[]
   equipment        Equipment[]
@@ -412,11 +415,11 @@ model AppointmentSlot {
   id                     String               @id @default(uuid())
   startTime              String
   endTime                String
-  donorsPerSlot          Int
   isAvailable            Boolean              @default(true)
   medicalEstablishmentId String
+  donorsPerSlot          Int
+  appointments           Appointment[]
   medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
-  appointments           Appointment[]        // Add reverse relation
 }
 
 model Equipment {

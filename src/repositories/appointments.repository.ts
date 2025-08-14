@@ -3,12 +3,22 @@ import { CreateAppointmentsInput } from "../types/index.js";
 
 export const AppointmentsRepository = {
   // Create appointment for a medical establishment
-  createAppointment: async (data: CreateAppointmentsInput & { scheduled: "PENDING" }) => {
-    const { donorId, slotId, appointmentDate, scheduled } = data;
+  createAppointment: async (
+    data: CreateAppointmentsInput & { scheduled: "PENDING" }
+  ) => {
+    const {
+      donorId,
+      slotId,
+      appointmentDate,
+      scheduled,
+      medicalEstablishmentId,
+    } = data;
 
     // Validate input data
-    if (!donorId || !slotId || !appointmentDate) {
-      throw new Error("Donor ID, slot ID, and appointment date are required");
+    if (!donorId || !slotId || !appointmentDate || !medicalEstablishmentId) {
+      throw new Error(
+        "Donor ID, slot ID, appointment date, and medical establishment ID are required"
+      );
     }
 
     // Create the appointment in the database
@@ -18,14 +28,12 @@ export const AppointmentsRepository = {
         slotId,
         appointmentDate,
         scheduled,
+        medicalEstablishmentId,
       },
       include: {
         donor: true,
-        slot: {
-          include: {
-            medicalEstablishment: true,
-          },
-        },
+        slot: true,
+        medicalEstablishment: true, 
       },
     });
 
@@ -60,12 +68,12 @@ export const AppointmentsRepository = {
   checkSlotAvailability: async (slotId: string): Promise<boolean> => {
     const slot = await prisma.appointmentSlot.findUnique({
       where: { id: slotId },
-      select: { 
+      select: {
         isAvailable: true,
         donorsPerSlot: true,
         _count: {
-          select: { appointments: true }
-        }
+          select: { appointments: true },
+        },
       },
     });
 
@@ -81,17 +89,28 @@ export const AppointmentsRepository = {
       where: { id: appointmentId },
       include: {
         donor: true,
-        slot: {
-          include: {
-            medicalEstablishment: true,
-          },
-        },
+        slot: true,
+        medicalEstablishment: true,
+      },
+    });
+  },
+
+  getAppointmentsByMedicalEstablishmentId: async (medicalEstablishmentId: string) => {
+    return await prisma.appointment.findMany({
+      where: { medicalEstablishmentId },
+      include: {
+        donor: true,
+        slot: true,
+        medicalEstablishment: true,
       },
     });
   },
 
   // Update user's next eligible date (called after appointment completion)
-  updateUserNextEligible: async (donorId: string, nextEligibleDate: Date) => {
+  updateUserNextEligible: async (
+    donorId: string,
+    nextEligibleDate: Date
+  ) => {
     return await prisma.user.update({
       where: { id: donorId },
       data: { nextEligible: nextEligibleDate },
