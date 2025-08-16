@@ -275,18 +275,18 @@ model Campaign {
 }
 
 model Appointment {
-  id                String             @id @default(uuid())
-  donorId           String
+  id                     String               @id @default(uuid())
+  donorId                String
   medicalEstablishmentId String
-  bdfId             String?            @unique
-  scheduled         AppointmentStatus
-  appointmentDate   DateTime
-  slotId            String
-  bloodDonationForm BloodDonationForm? @relation(fields: [bdfId], references: [id], onDelete: Restrict)
-  donor             User               @relation(fields: [donorId], references: [id])
-  medicalEstablishment MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
-  slot              AppointmentSlot    @relation(fields: [slotId], references: [id])
-  bloodTests        BloodTest[]
+  bdfId                  String?              @unique
+  scheduled              AppointmentStatus
+  appointmentDate        DateTime
+  slotId                 String
+  bloodDonationForm      BloodDonationForm?   @relation(fields: [bdfId], references: [id], onDelete: Restrict)
+  donor                  User                 @relation(fields: [donorId], references: [id])
+  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+  slot                   AppointmentSlot      @relation(fields: [slotId], references: [id])
+  bloodTests             BloodTest[]
 }
 
 model Inventory {
@@ -402,8 +402,8 @@ model MedicalEstablishment {
   email            String
   bloodCapacity    Int
   isBloodBank      Boolean
-  appointmentSlots AppointmentSlot[]
   appointments     Appointment[]
+  appointmentSlots AppointmentSlot[]
   bloodBanks       BloodBank[]
   campaigns        Campaign[]
   equipment        Equipment[]

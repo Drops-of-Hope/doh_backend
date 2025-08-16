@@ -71,6 +71,8 @@ export const AppointmentSlotsService = {
   createAppointment: async (data: {
     donorId: string;
     appointmentDateTime: Date;
+    slotId: string;
+    medicalEstablishmentId: string;
   }) => {
     return AppointmentSlotsRepository.createAppointment({
       ...data,

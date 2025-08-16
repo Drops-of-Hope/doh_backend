@@ -38,23 +38,26 @@ export const AppointmentSlotsRepository = {
     donorId: string;
     appointmentDateTime: Date;
     scheduled: "PENDING" | "COMPLETED" | "CANCELLED";
+    slotId: string;
+    medicalEstablishmentId: string;
   }) => {
-    const { donorId, appointmentDateTime, scheduled } = data;
+    const { donorId, appointmentDateTime, scheduled, slotId, medicalEstablishmentId } = data;
 
     // Validate input data
-    if (!donorId || !appointmentDateTime) {
+  if (!donorId || !appointmentDateTime || !slotId || !medicalEstablishmentId) {
       throw new Error(
-        "Donor ID and appointment date/time are required"
+    "Donor ID, slot ID, medical establishment ID and appointment date/time are required"
       );
     }
 
     // Create the appointment in the database
     const appointment = await prisma.appointment.create({
       data: {
-        donorId,
-        appointmentDate: appointmentDateTime,
-        scheduled: scheduled,
-        slotId: "temp-slot-id", // This method needs to be updated to use proper slot
+    donorId,
+    appointmentDate: appointmentDateTime,
+    scheduled: scheduled,
+    slotId,
+    medicalEstablishmentId,
       },
     });
 
