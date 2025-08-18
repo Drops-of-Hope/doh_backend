@@ -21,19 +21,21 @@ export const AppointmentsRepository = {
       );
     }
 
-    // Create the appointment in the database
+    // Create the appointment in the database using nested connect for relations
+    // This avoids depending on unchecked scalar FK writes and matches the
+    // generated Prisma client types (use connect for existing related records).
     const appointment = await prisma.appointment.create({
       data: {
-        donorId,
-        slotId,
+        donor: { connect: { id: donorId } },
+        slot: { connect: { id: slotId } },
         appointmentDate,
         scheduled,
-        medicalEstablishmentId,
+        medicalEstablishment: { connect: { id: medicalEstablishmentId } },
       },
       include: {
         donor: true,
         slot: true,
-        medicalEstablishment: true, 
+        medicalEstablishment: true,
       },
     });
 
@@ -95,9 +97,25 @@ export const AppointmentsRepository = {
     });
   },
 
-  getAppointmentsByMedicalEstablishmentId: async (medicalEstablishmentId: string) => {
+  // Get user appointments by userID
+  getAppointmentsByUserId: async (userId: string) => {
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
     return await prisma.appointment.findMany({
-      where: { medicalEstablishmentId },
+      where: { donorId: userId },
+      include: {
+        donor: true,
+        slot: true,
+        medicalEstablishment: true,
+      },
+    });
+  },
+
+  getAppointmentsByMedicalEstablishmentId: async (medicalEstablishmentId: string) => {
+    // Use nested relation filter to match generated Prisma types
+    return await prisma.appointment.findMany({
+      where: { medicalEstablishment: { id: medicalEstablishmentId } },
       include: {
         donor: true,
         slot: true,

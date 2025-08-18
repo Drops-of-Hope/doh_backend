@@ -5,6 +5,7 @@ import appointmentsRoutes from "./appointments.route.js";
 import appointmentSlotsRoutes from "./appointmentSlots.route.js";
 import medicalEstablishmentsRoutes from "./medicalEstablishments.route.js";
 import userRoutes from "./user.routes.js";
+import donationsRoutes from "./donations.route.js";
 
 const router = Router();
 
@@ -13,5 +14,6 @@ router.use("/appointments", appointmentsRoutes);
 router.use("/slots", appointmentSlotsRoutes);
 router.use("/medical-establishments", medicalEstablishmentsRoutes);
 router.use("/users", userRoutes);
+router.use("/donations", donationsRoutes);
 
 export default router;

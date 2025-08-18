@@ -125,11 +125,11 @@ export const AppointmentSlotsController = {
 
   createAppointment: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { donorId, appointmentDateTime } = req.body;
+      const { donorId, appointmentDateTime, slotId, medicalEstablishmentId } = req.body;
 
-      if (!donorId || !appointmentDateTime) {
+      if (!donorId || !appointmentDateTime || !slotId || !medicalEstablishmentId) {
         res.status(400).json({
-          message: "Donor ID and appointment date/time are required",
+          message: "Donor ID, slot ID, medical establishment ID, and appointment date/time are required",
         });
         return;
       }
@@ -137,6 +137,8 @@ export const AppointmentSlotsController = {
       const appointment = await AppointmentSlotsService.createAppointment({
         donorId,
         appointmentDateTime,
+        slotId,
+        medicalEstablishmentId,
       });
 
       res.status(201).json({

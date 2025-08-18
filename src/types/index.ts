@@ -22,3 +22,9 @@ export {
   UserCreateResponse,
   UserExistsResponse
 } from './user.types.js';
+
+export {
+  DonationFormData,
+  CreateDonationFormInput,
+  DonationFormResponse,
+} from './donationForm.types.js';
