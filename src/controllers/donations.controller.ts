@@ -7,13 +7,11 @@ export const DonationsController = {
     try {
       const form: DonationFormData = req.body;
 
-      // Basic server-side validation
       if (!form) {
         res.status(400).json({ message: "Donation form data is required" });
         return;
       }
 
-      // Ensure dateTime is a Date for the service input
       const input: CreateDonationFormInput = {
         ...form,
         dateTime: form.dateTime ? new Date(form.dateTime) : undefined,
@@ -24,7 +22,37 @@ export const DonationsController = {
       res.status(201).json({ message: "Donation form submitted", data: created });
     } catch (error) {
       console.error("Error submitting donation form:", error);
-      res.status(500).json({ message: "Failed to submit donation form", error: error instanceof Error ? error.message : "Unknown error" });
+      res.status(500).json({ 
+        message: "Failed to submit donation form", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+    }
+  },
+
+  // Get donation form by ID
+  getDonationFormById: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        res.status(400).json({ message: "Donation form ID is required" });
+        return;
+      }
+
+      const donationForm = await DonationsService.getDonationFormById(id);
+
+      if (!donationForm) {
+        res.status(404).json({ message: "Donation form not found" });
+        return;
+      }
+
+      res.status(200).json({ data: donationForm });
+    } catch (error) {
+      console.error("Error retrieving donation form:", error);
+      res.status(500).json({ 
+        message: "Failed to retrieve donation form", 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   },
 };

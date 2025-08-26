@@ -54,4 +54,14 @@ export const DonationsRepository = {
 
     return created;
   },
+
+  // Retrieve a donation form by ID
+  findDonationFormById: async (id: string) => {
+    return await prisma.bloodDonationForm.findUnique({
+      where: { id },
+      include: {
+        user: true,   
+      },
+    });
+  }
 };
