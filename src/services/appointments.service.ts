@@ -44,6 +44,14 @@ export const AppointmentsService = {
     return await AppointmentsRepository.getAppointmentById(appointmentId);
   },
 
+  // Get user's appointments by ID
+  getAppointmentsByUserId: async (userId: string) => {
+    if (!userId) {
+      throw new Error("User ID is required");
+    }
+    return await AppointmentsRepository.getAppointmentsByUserId(userId);
+  },
+
   // Get all appointments for a medical establishment
   getAppointmentsByMedicalEstablishmentId: async (medicalEstablishmentId: string) => {
     if (!medicalEstablishmentId) {

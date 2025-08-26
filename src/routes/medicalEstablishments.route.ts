@@ -4,6 +4,8 @@ import { MedicalEstablishmentsController } from "../controllers/medicalEstablish
 
 const router = Router();
 
+console.log('medical establishment route');
+
 router.get("/", MedicalEstablishmentsController.getMedicalEstablishments); //Retrieve medical establishments by district.
 
 //router.get('/appointments/:establishmentId/dates', MedicalEstablishmentsController.getDates); //Fetch the next 7 upcoming dates for a medical establishment.

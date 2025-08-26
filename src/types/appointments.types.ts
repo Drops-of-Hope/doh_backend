@@ -7,7 +7,7 @@ export interface Appointment {
   slotId: string;
   scheduled: AppointmentStatus;
   appointmentDate: Date;
-  medicalEstablishmentId: string; 
+  medicalEstablishmentId: string;
 }
 
 export interface CreateAppointmentsInput {
