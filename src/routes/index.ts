@@ -6,14 +6,45 @@ import appointmentSlotsRoutes from "./appointmentSlots.route.js";
 import medicalEstablishmentsRoutes from "./medicalEstablishments.route.js";
 import userRoutes from "./user.routes.js";
 import donationsRoutes from "./donations.route.js";
+import authRoutes from "./auth.route.js";
+import homeRoutes from "./home.route.js";
+import campaignsRoutes from "./campaigns.route.js";
+import emergenciesRoutes from "./emergencies.route.js";
+import qrRoutes from "./qr.route.js";
 
 const router = Router();
 
-router.use("/dummies", dummyRoutes);
-router.use("/appointments", appointmentsRoutes);
-router.use("/slots", appointmentSlotsRoutes);
-router.use("/medical-establishments", medicalEstablishmentsRoutes);
+// Authentication routes
+router.use("/auth", authRoutes);
+
+// User routes
 router.use("/users", userRoutes);
+
+// Appointment routes
+router.use("/appointments", appointmentsRoutes);
+
+// Appointment slots routes
+router.use("/slots", appointmentSlotsRoutes);
+
+// Medical establishments routes
+router.use("/medical-establishments", medicalEstablishmentsRoutes);
+
+// Donation routes
 router.use("/donations", donationsRoutes);
+
+// Home dashboard routes
+router.use("/home", homeRoutes);
+
+// Campaign routes
+router.use("/campaigns", campaignsRoutes);
+
+// Emergency routes
+router.use("/emergencies", emergenciesRoutes);
+
+// QR code routes
+router.use("/qr", qrRoutes);
+
+// Dummy routes (for testing)
+router.use("/dummies", dummyRoutes);
 
 export default router;

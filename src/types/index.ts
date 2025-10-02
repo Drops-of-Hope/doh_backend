@@ -28,3 +28,34 @@ export {
   CreateDonationFormInput,
   DonationFormResponse,
 } from './donationForm.types.js';
+
+export {
+  AuthenticatedUser,
+  AuthenticatedRequest,
+  DecodedToken,
+  LoginRequest,
+  RegisterRequest,
+  QRScanRequest,
+  QRScanResult,
+  EmergencyResponseRequest
+} from './auth.types.js';
+
+export {
+  AppointmentWithRelations,
+  AppointmentQueryResult,
+  AppointmentWhereClause,
+  AppointmentUpdateData,
+  AppointmentCreateData
+} from './appointment.types.js';
+
+export {
+  CampaignWithRelations,
+  CampaignQueryResult,
+  CampaignWhereClause,
+  CampaignUpcomingWhereClause
+} from './campaign.types.js';
+
+export {
+  QRScanResultType,
+  QRDataContent
+} from './qr.types.js';
