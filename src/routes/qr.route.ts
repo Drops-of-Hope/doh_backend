@@ -7,7 +7,10 @@ const router = Router();
 // POST /qr/scan
 router.post("/scan", authenticateToken, QRController.scanQR);
 
-// GET /qr/generate
-router.get("/generate", authenticateToken, QRController.generateQR);
+// POST /qr/generate - Generate QR code for user
+router.post("/generate", authenticateToken, QRController.generateQR);
+
+// POST /qr/mark-attendance - Mark attendance via QR scan
+router.post("/mark-attendance", authenticateToken, QRController.markAttendanceQR);
 
 export default router;

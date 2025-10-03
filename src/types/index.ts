@@ -57,5 +57,43 @@ export {
 
 export {
   QRScanResultType,
-  QRDataContent
+  QRDataContent,
+  GenerateQRRequest,
+  GenerateQRResponse,
+  ScanQRRequest,
+  ScanQRResponse,
+  MarkAttendanceQRRequest
 } from './qr.types.js';
+
+export {
+  NotificationRequest,
+  NotificationFilters,
+  NotificationResponse,
+  NotificationStats,
+  NotificationSettings,
+  BatchReadRequest,
+  UnreadCountResponse,
+  TestNotificationRequest
+} from './notification.types.js';
+
+export {
+  OrganizerCampaignRequest,
+  CreateCampaignRequest,
+  CampaignStatsResponse,
+  MarkAttendanceRequest,
+  AttendanceRecord,
+  UpdateCampaignStatusRequest,
+  ManualAttendanceRequest,
+  CampaignResponse
+} from './campaignOrganizer.types.js';
+
+export {
+  UserSearchFilters,
+  DonorSearchResult,
+  UserSearchResponse,
+  DonorDetailsResponse,
+  VerifyDonorRequest,
+  VerifyDonorResponse,
+  RecentDonorsRequest,
+  FrequentDonorsRequest
+} from './userSearch.types.js';

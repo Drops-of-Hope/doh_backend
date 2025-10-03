@@ -237,4 +237,131 @@ export const QRController = {
       });
     }
   },
+
+  // POST /qr/mark-attendance
+  markAttendanceQR: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { qrData, campaignId } = req.body;
+      const scannerId = req.user?.id;
+
+      if (!scannerId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to mark attendance",
+        });
+        return;
+      }
+
+      if (!qrData || !campaignId) {
+        res.status(400).json({
+          success: false,
+          error: "Missing required fields",
+          message: "QR data and campaign ID are required",
+        });
+        return;
+      }
+
+      // Parse QR data to get user ID
+      let scannedUserId: string;
+      try {
+        const qrContent: QRDataContent = JSON.parse(qrData);
+        scannedUserId = qrContent.userId || "";
+      } catch {
+        // If not JSON, assume it's a simple user ID
+        scannedUserId = qrData;
+      }
+
+      if (!scannedUserId) {
+        res.status(400).json({
+          success: false,
+          error: "Invalid QR data",
+          message: "QR code does not contain valid user information",
+        });
+        return;
+      }
+
+      // Find the campaign participation
+      const participation = await prisma.campaignParticipation.findFirst({
+        where: {
+          campaignId,
+          userId: scannedUserId,
+        },
+        include: {
+          user: {
+            select: {
+              name: true,
+              bloodGroup: true,
+              nic: true,
+            },
+          },
+          campaign: {
+            select: {
+              title: true,
+            },
+          },
+        },
+      });
+
+      if (!participation) {
+        res.status(404).json({
+          success: false,
+          error: "Participation not found",
+          message: "User is not registered for this campaign",
+        });
+        return;
+      }
+
+      // Mark attendance via QR scan
+      const [updatedParticipation, qrScan] = await Promise.all([
+        prisma.campaignParticipation.update({
+          where: { id: participation.id },
+          data: {
+            qrCodeScanned: true,
+            scannedAt: new Date(),
+            scannedById: scannerId,
+            attendanceMarked: true,
+            status: 'ATTENDED',
+          },
+        }),
+        prisma.qRScan.create({
+          data: {
+            scannerId,
+            scannedUserId,
+            campaignId,
+            campaignParticipationId: participation.id,
+            scanType: 'CAMPAIGN_ATTENDANCE',
+            metadata: {
+              qrData,
+              attendanceMarked: true,
+              scanLocation: "campaign_site",
+            },
+          },
+        }),
+      ]);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          attendance: {
+            participationId: updatedParticipation.id,
+            userId: scannedUserId,
+            userName: participation.user.name,
+            userBloodGroup: participation.user.bloodGroup,
+            campaignTitle: participation.campaign.title,
+            scannedAt: updatedParticipation.scannedAt,
+            status: updatedParticipation.status,
+          },
+          qrScanId: qrScan.id,
+        },
+      });
+    } catch (error) {
+      console.error("Mark attendance QR error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to mark attendance via QR",
+      });
+    }
+  },
 };

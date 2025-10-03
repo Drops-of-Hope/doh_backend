@@ -11,6 +11,7 @@ import homeRoutes from "./home.route.js";
 import campaignsRoutes from "./campaigns.route.js";
 import emergenciesRoutes from "./emergencies.route.js";
 import qrRoutes from "./qr.route.js";
+import notificationRoutes from "./notification.route.js";
 
 const router = Router();
 
@@ -43,6 +44,9 @@ router.use("/emergencies", emergenciesRoutes);
 
 // QR code routes
 router.use("/qr", qrRoutes);
+
+// Notification routes
+router.use("/notifications", notificationRoutes);
 
 // Dummy routes (for testing)
 router.use("/dummies", dummyRoutes);
