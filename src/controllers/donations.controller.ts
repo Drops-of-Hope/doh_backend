@@ -96,6 +96,7 @@ export const DonationsController = {
       const input: CreateDonationFormInput = {
         ...form,
         donorId: userId,
+        appointmentId: form.appointmentId, // Pass through the optional appointmentId
         dateTime: form.dateTime ? new Date(form.dateTime) : new Date(),
       };
 

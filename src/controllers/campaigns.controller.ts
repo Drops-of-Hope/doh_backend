@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { PrismaClient, ParticipationStatus } from "@prisma/client";
 import { CampaignWhereClause } from "../types/campaign.types.js";
 import { CampaignService } from "../services/campaigns.service.js";
+import { QRScanResultType, ScanQRRequest, MarkAttendanceQRRequest } from "../types/qr.types.js";
 
 const prisma = new PrismaClient();
 
@@ -757,6 +758,597 @@ export const CampaignsController = {
         success: false,
         error: "Internal server error",
         message: "Failed to mark attendance",
+      });
+    }
+  },
+
+  // PUT /campaigns/:id - Update campaign (organizer only)
+  updateCampaign: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+      const {
+        title,
+        type,
+        location,
+        motivation,
+        description,
+        startTime,
+        endTime,
+        expectedDonors,
+        contactPersonName,
+        contactPersonPhone,
+        medicalEstablishmentId,
+        requirements,
+      } = req.body;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to update campaigns",
+        });
+        return;
+      }
+
+      // Check if campaign exists and user is the organizer
+      const existingCampaign = await prisma.campaign.findUnique({
+        where: { id },
+        select: {
+          organizerId: true,
+          startTime: true,
+          isApproved: true,
+          _count: {
+            select: {
+              participations: true,
+            },
+          },
+        },
+      });
+
+      if (!existingCampaign) {
+        res.status(404).json({
+          success: false,
+          error: "Campaign not found",
+          message: "The specified campaign does not exist",
+        });
+        return;
+      }
+
+      // Check if user is the organizer
+      if (existingCampaign.organizerId !== userId) {
+        res.status(403).json({
+          success: false,
+          error: "Unauthorized",
+          message: "Only the campaign organizer can update this campaign",
+        });
+        return;
+      }
+
+      // Check if campaign has already started
+      if (existingCampaign.startTime <= new Date()) {
+        res.status(400).json({
+          success: false,
+          error: "Cannot update active campaign",
+          message: "Cannot update a campaign that has already started",
+        });
+        return;
+      }
+
+      // If campaign has participants and significant changes are made, require re-approval
+      const hasParticipants = existingCampaign._count.participations > 0;
+      const needsReApproval = hasParticipants && (startTime || endTime || location || expectedDonors);
+
+      // Prepare update data
+      const updateData: Record<string, unknown> = {};
+      
+      // Build update data conditionally
+      if (title !== undefined) updateData.title = title;
+      if (type !== undefined) updateData.type = type;
+      if (location !== undefined) updateData.location = location;
+      if (motivation !== undefined) updateData.motivation = motivation;
+      if (description !== undefined) updateData.description = description;
+      if (startTime !== undefined) updateData.startTime = new Date(startTime);
+      if (endTime !== undefined) updateData.endTime = new Date(endTime);
+      if (expectedDonors !== undefined) updateData.expectedDonors = parseInt(expectedDonors);
+      if (contactPersonName !== undefined) updateData.contactPersonName = contactPersonName;
+      if (contactPersonPhone !== undefined) updateData.contactPersonPhone = contactPersonPhone;
+      if (requirements !== undefined) updateData.requirements = requirements;
+
+      // Handle medical establishment update using connect/disconnect
+      if (medicalEstablishmentId !== undefined) {
+        if (medicalEstablishmentId) {
+          updateData.medicalEstablishment = {
+            connect: { id: medicalEstablishmentId }
+          };
+        } else {
+          updateData.medicalEstablishment = {
+            disconnect: true
+          };
+        }
+      }
+
+      // Reset approval if significant changes made
+      if (needsReApproval) {
+        updateData.isApproved = false;
+      }
+
+      const updatedCampaign = await prisma.campaign.update({
+        where: { id },
+        data: updateData,
+        include: {
+          medicalEstablishment: {
+            select: {
+              name: true,
+              address: true,
+            },
+          },
+          organizer: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+          _count: {
+            select: {
+              participations: true,
+            },
+          },
+        },
+      });
+
+      // Create activity for campaign update
+      try {
+        const { ActivityService } = await import("../services/activity.service.js");
+        await ActivityService.createActivity({
+          userId,
+          type: "CAMPAIGN_UPDATED",
+          title: "Campaign Updated",
+          description: `Updated campaign: ${updatedCampaign.title}${needsReApproval ? " (requires re-approval)" : ""}`,
+          metadata: {
+            campaignId: id,
+            campaignTitle: updatedCampaign.title,
+            needsReApproval,
+          },
+        });
+
+        // Notify participants if significant changes were made
+        if (needsReApproval && hasParticipants) {
+          // Create notifications for all participants about campaign changes
+          const participants = await prisma.campaignParticipation.findMany({
+            where: { campaignId: id },
+            select: { userId: true },
+          });
+
+          const notificationPromises = participants.map(participant =>
+            prisma.notification.create({
+              data: {
+                userId: participant.userId,
+                type: "CAMPAIGN_UPDATED",
+                title: "Campaign Updated",
+                message: `The campaign "${updatedCampaign.title}" has been updated and requires re-approval. Please check the latest details.`,
+                metadata: {
+                  campaignId: id,
+                  campaignTitle: updatedCampaign.title,
+                },
+              },
+            })
+          );
+
+          await Promise.all(notificationPromises);
+        }
+      } catch (activityError) {
+        console.error("Error creating update activity:", activityError);
+        // Don't fail the update if activity creation fails
+      }
+
+      res.status(200).json({
+        success: true,
+        campaign: updatedCampaign,
+        message: needsReApproval 
+          ? "Campaign updated successfully. Re-approval required due to significant changes."
+          : "Campaign updated successfully.",
+      });
+    } catch (error) {
+      console.error("Update campaign error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to update campaign",
+      });
+    }
+  },
+
+  // DELETE /campaigns/:id - Delete campaign (organizer only)
+  deleteCampaign: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to delete campaigns",
+        });
+        return;
+      }
+
+      // Check if campaign exists and user is the organizer
+      const existingCampaign = await prisma.campaign.findUnique({
+        where: { id },
+        select: {
+          organizerId: true,
+          title: true,
+          startTime: true,
+          _count: {
+            select: {
+              participations: true,
+            },
+          },
+        },
+      });
+
+      if (!existingCampaign) {
+        res.status(404).json({
+          success: false,
+          error: "Campaign not found",
+          message: "The specified campaign does not exist",
+        });
+        return;
+      }
+
+      // Check if user is the organizer
+      if (existingCampaign.organizerId !== userId) {
+        res.status(403).json({
+          success: false,
+          error: "Unauthorized",
+          message: "Only the campaign organizer can delete this campaign",
+        });
+        return;
+      }
+
+      // Check if campaign has already started
+      if (existingCampaign.startTime <= new Date()) {
+        res.status(400).json({
+          success: false,
+          error: "Cannot delete active campaign",
+          message: "Cannot delete a campaign that has already started",
+        });
+        return;
+      }
+
+      // Check if campaign has participants
+      const hasParticipants = existingCampaign._count.participations > 0;
+      
+      if (hasParticipants) {
+        // Notify participants before deletion
+        const participants = await prisma.campaignParticipation.findMany({
+          where: { campaignId: id },
+          select: { userId: true },
+        });
+
+        const notificationPromises = participants.map(participant =>
+          prisma.notification.create({
+            data: {
+              userId: participant.userId,
+              type: "CAMPAIGN_CANCELLED",
+              title: "Campaign Cancelled",
+              message: `The campaign "${existingCampaign.title}" has been cancelled by the organizer.`,
+              metadata: {
+                campaignId: id,
+                campaignTitle: existingCampaign.title,
+              },
+            },
+          })
+        );
+
+        await Promise.all(notificationPromises);
+      }
+
+      // Delete campaign and related data (cascade delete)
+      await prisma.$transaction(async (tx) => {
+        // Delete participations first
+        await tx.campaignParticipation.deleteMany({
+          where: { campaignId: id },
+        });
+
+        // Delete related activities
+        await tx.activity.deleteMany({
+          where: {
+            metadata: {
+              path: ["campaignId"],
+              equals: id,
+            },
+          },
+        });
+
+        // Delete related notifications
+        await tx.notification.deleteMany({
+          where: {
+            metadata: {
+              path: ["campaignId"],
+              equals: id,
+            },
+          },
+        });
+
+        // Finally delete the campaign
+        await tx.campaign.delete({
+          where: { id },
+        });
+      });
+
+      // Create activity for campaign deletion
+      try {
+        const { ActivityService } = await import("../services/activity.service.js");
+        await ActivityService.createActivity({
+          userId,
+          type: "CAMPAIGN_CANCELLED",
+          title: "Campaign Deleted",
+          description: `Deleted campaign: ${existingCampaign.title}`,
+          metadata: {
+            campaignTitle: existingCampaign.title,
+            participantsNotified: hasParticipants,
+          },
+        });
+      } catch (activityError) {
+        console.error("Error creating deletion activity:", activityError);
+        // Don't fail the deletion if activity creation fails
+      }
+
+      res.status(200).json({
+        success: true,
+        message: `Campaign "${existingCampaign.title}" deleted successfully.${hasParticipants ? " Participants have been notified." : ""}`,
+      });
+    } catch (error) {
+      console.error("Delete campaign error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to delete campaign",
+      });
+    }
+  },
+
+  // GET /campaigns/:id - Get single campaign details
+  getCampaignDetails: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const campaign = await prisma.campaign.findUnique({
+        where: { id },
+        include: {
+          medicalEstablishment: {
+            select: {
+              name: true,
+              address: true,
+            },
+          },
+          organizer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          _count: {
+            select: {
+              participations: true,
+            },
+          },
+        },
+      });
+
+      if (!campaign) {
+        res.status(404).json({
+          success: false,
+          error: "Campaign not found",
+          message: "The specified campaign does not exist",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        campaign: {
+          ...campaign,
+          participantsCount: campaign._count.participations,
+        },
+      });
+    } catch (error) {
+      console.error("Get campaign details error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to fetch campaign details",
+      });
+    }
+  },
+
+  // Mark attendance via QR scan
+  markAttendanceByQR: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { campaignId } = req.params;
+      const { userId, notes }: MarkAttendanceQRRequest = req.body;
+      const scannerId = req.user?.id;
+
+      if (!scannerId) {
+        res.status(401).json({
+          success: false,
+          error: "Authentication required",
+        });
+        return;
+      }
+
+      // Verify campaign exists and user has permission to mark attendance
+      const campaign = await prisma.campaign.findUnique({
+        where: { id: campaignId },
+        include: { organizer: true },
+      });
+
+      if (!campaign) {
+        res.status(404).json({
+          success: false,
+          error: "Campaign not found",
+        });
+        return;
+      }
+
+      // Check if scanner has permission (organizer or authorized personnel)
+      if (campaign.organizerId !== scannerId) {
+        res.status(403).json({
+          success: false,
+          error: "Insufficient permissions to mark attendance",
+        });
+        return;
+      }
+
+      // Find the participation record
+      const participation = await prisma.campaignParticipation.findFirst({
+        where: {
+          userId,
+          campaignId,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              bloodGroup: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      if (!participation) {
+        res.status(404).json({
+          success: false,
+          error: "User not registered for this campaign",
+        });
+        return;
+      }
+
+      // Update participation with attendance
+      const updatedParticipation = await prisma.campaignParticipation.update({
+        where: { id: participation.id },
+        data: {
+          attendanceMarked: true,
+          qrCodeScanned: true,
+          scannedAt: new Date(),
+          scannedById: scannerId,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              bloodGroup: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Create activity record for the user
+      await prisma.activity.create({
+        data: {
+          userId,
+          type: "QR_SCANNED",
+          title: "Campaign Attendance Marked",
+          description: `Your attendance was marked for campaign: ${campaign.title}`,
+          metadata: {
+            campaignId,
+            scannerId,
+            attendanceMethod: "QR_SCAN",
+            notes: notes || null,
+          },
+        },
+      });
+
+      const scanResult: QRScanResultType = {
+        scanId: `attendance_${updatedParticipation.id}`,
+        scanType: "CAMPAIGN_ATTENDANCE",
+        scannedUser: {
+          id: participation.user.id,
+          name: participation.user.name,
+          bloodGroup: participation.user.bloodGroup || "Unknown",
+        },
+        timestamp: new Date(),
+        participationUpdated: true,
+        participationId: participation.id,
+      };
+
+      res.status(200).json({
+        success: true,
+        message: "Attendance marked successfully",
+        scanResult,
+        participation: updatedParticipation,
+      });
+    } catch (error) {
+      console.error("Mark attendance error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to mark attendance",
+      });
+    }
+  },
+
+  // Process QR scan for campaign attendance
+  processQRScan: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { campaignId } = req.params;
+      const { qrData, location }: ScanQRRequest = req.body;
+      const authenticatedUserId = req.user?.id;
+
+      if (!authenticatedUserId) {
+        res.status(401).json({
+          success: false,
+          error: "Authentication required",
+        });
+        return;
+      }
+
+      // Parse QR data to extract user information
+      let qrContent;
+      try {
+        qrContent = JSON.parse(qrData);
+      } catch {
+        res.status(400).json({
+          success: false,
+          error: "Invalid QR code format",
+        });
+        return;
+      }
+
+      const scannedUserId = qrContent.userId || qrContent.scannedUserId;
+      if (!scannedUserId) {
+        res.status(400).json({
+          success: false,
+          error: "QR code does not contain valid user information",
+        });
+        return;
+      }
+
+      // Mark attendance using the QR scan data
+      const markAttendanceRequest: MarkAttendanceQRRequest = {
+        userId: scannedUserId,
+        campaignId,
+        notes: `QR scan at ${location ? `${location.latitude}, ${location.longitude}` : 'unknown location'}`,
+      };
+
+      // Call the mark attendance function
+      req.params.campaignId = campaignId;
+      req.body = markAttendanceRequest;
+      await CampaignsController.markAttendanceByQR(req, res);
+    } catch (error) {
+      console.error("Process QR scan error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to process QR scan",
       });
     }
   },

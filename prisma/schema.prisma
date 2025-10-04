@@ -205,7 +205,8 @@ model BloodDonationForm {
   highRisk           Boolean
   hadWeightLoss      Boolean
   userId             String?
-  appointment        Appointment?
+  appointmentId      String?
+  appointment        Appointment?   @relation(fields: [appointmentId], references: [id])
   bloodDonation      BloodDonation?
   user               User?          @relation(fields: [userId], references: [id])
 }
@@ -278,11 +279,10 @@ model Appointment {
   id                     String               @id @default(uuid())
   donorId                String
   medicalEstablishmentId String
-  bdfId                  String?              @unique
   scheduled              AppointmentStatus
   appointmentDate        DateTime
   slotId                 String
-  bloodDonationForm      BloodDonationForm?   @relation(fields: [bdfId], references: [id], onDelete: Restrict)
+  bloodDonationForms     BloodDonationForm[]
   donor                  User                 @relation(fields: [donorId], references: [id])
   medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
   slot                   AppointmentSlot      @relation(fields: [slotId], references: [id])
@@ -532,6 +532,8 @@ enum ActivityType {
   APPOINTMENT_CANCELLED
   CAMPAIGN_JOINED
   CAMPAIGN_COMPLETED
+  CAMPAIGN_UPDATED
+  CAMPAIGN_CANCELLED
   QR_SCANNED
   BADGE_EARNED
   POINTS_EARNED
@@ -541,6 +543,8 @@ enum ActivityType {
 enum NotificationType {
   APPOINTMENT_REMINDER
   CAMPAIGN_INVITATION
+  CAMPAIGN_UPDATED
+  CAMPAIGN_CANCELLED
   EMERGENCY_ALERT
   DONATION_ELIGIBLE
   BADGE_EARNED

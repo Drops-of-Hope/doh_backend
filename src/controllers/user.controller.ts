@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/user.service.js";
 import { CreateOrLoginUserRequest, ProfileCompletionRequest } from "../types/user.types.js";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, ActivityType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -409,7 +409,14 @@ export const UserController = {
   getActivities: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id;
-      const { limit = "10", recent } = req.query;
+      const { 
+        limit = "10", 
+        offset = "0",
+        type,
+        startDate,
+        endDate,
+        recent 
+      } = req.query;
 
       if (!userId) {
         res.status(401).json({
@@ -421,25 +428,55 @@ export const UserController = {
       }
 
       const limitNum = parseInt(limit as string);
-      const whereClause = { userId };
+      const offsetNum = parseInt(offset as string);
+
+      // Build filter options
+      const options: {
+        limit: number;
+        offset: number;
+        type?: ActivityType;
+        startDate?: Date;
+        endDate?: Date;
+      } = {
+        limit: limitNum,
+        offset: offsetNum,
+      };
+
+      if (type) {
+        options.type = type as ActivityType;
+      }
 
       if (recent === "true") {
         // Get activities from last 30 days
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-        Object.assign(whereClause, {
-          createdAt: { gte: thirtyDaysAgo },
-        });
+        options.startDate = thirtyDaysAgo;
+        options.endDate = new Date();
+      } else if (startDate && endDate) {
+        options.startDate = new Date(startDate as string);
+        options.endDate = new Date(endDate as string);
       }
 
-      const activities = await prisma.activity.findMany({
-        where: whereClause,
-        orderBy: { createdAt: "desc" },
-        take: limitNum,
-      });
+      // Use ActivityService to get activities with proper filtering
+      const { ActivityService } = await import("../services/activity.service.js");
+      const result = await ActivityService.getUserActivities(userId, options);
+
+      // Get activity stats
+      const stats = await ActivityService.getActivityStats(userId);
 
       res.status(200).json({
-        data: { activities },
+        success: true,
+        data: {
+          activities: result.activities,
+          stats,
+          pagination: {
+            currentPage: Math.floor(offsetNum / limitNum) + 1,
+            totalItems: result.total,
+            hasMore: result.hasMore,
+            limit: limitNum,
+            offset: offsetNum,
+          },
+        },
       });
     } catch (error) {
       console.error("Error in getActivities:", error);
@@ -483,6 +520,60 @@ export const UserController = {
         success: false,
         error: "Internal server error",
         message: "Failed to get notifications",
+      });
+    }
+  },
+
+  // POST /users/:userId/donation-completed - Update user stats after donation
+  updateDonationStats: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const { pointsEarned = 100 } = req.body;
+
+      if (!userId) {
+        res.status(400).json({
+          message: "User ID is required",
+        });
+        return;
+      }
+
+      const result = await UserService.updateDonationStats(userId, pointsEarned);
+      
+      res.status(200).json({
+        message: "Donation stats updated successfully",
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error in updateDonationStats:", error);
+      res.status(500).json({
+        message: "Failed to update donation stats",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  // GET /users/:userId/badge-info - Get badge information for user
+  getBadgeInfo: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        res.status(400).json({
+          message: "User ID is required",
+        });
+        return;
+      }
+
+      const badgeInfo = await UserService.getUserBadgeInfo(userId);
+      
+      res.status(200).json({
+        data: badgeInfo,
+      });
+    } catch (error) {
+      console.error("Error in getBadgeInfo:", error);
+      res.status(500).json({
+        message: "Failed to get badge information",
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   },

@@ -31,6 +31,12 @@ router.get("/activities", authenticateToken, UserController.getActivities);
 // Get user notifications (protected route)
 router.get("/notifications", authenticateToken, UserController.getNotifications);
 
+// Update donation stats after successful donation
+router.post("/:userId/donation-completed", UserController.updateDonationStats);
+
+// Get badge information for user
+router.get("/:userId/badge-info", UserController.getBadgeInfo);
+
 // Get user profile by ID (for backward compatibility)
 router.get("/:userId", UserController.getUserProfile);
 

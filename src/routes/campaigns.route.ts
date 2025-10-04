@@ -10,6 +10,18 @@ router.get("/", CampaignsController.getCampaigns);
 // GET /campaigns/upcoming
 router.get("/upcoming", CampaignsController.getUpcomingCampaigns);
 
+// GET /campaigns/:id - Get single campaign details
+router.get("/:id", CampaignsController.getCampaignDetails);
+
+// POST /campaigns - Create new campaign
+router.post("/", authenticateToken, CampaignsController.createCampaign);
+
+// PUT /campaigns/:id - Update campaign (organizer only)
+router.put("/:id", authenticateToken, CampaignsController.updateCampaign);
+
+// DELETE /campaigns/:id - Delete campaign (organizer only)
+router.delete("/:id", authenticateToken, CampaignsController.deleteCampaign);
+
 // POST /campaigns/:id/join
 router.post("/:id/join", authenticateToken, CampaignsController.joinCampaign);
 
