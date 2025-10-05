@@ -12,6 +12,7 @@ import campaignsRoutes from "./campaigns.route.js";
 import emergenciesRoutes from "./emergencies.route.js";
 import qrRoutes from "./qr.route.js";
 import notificationRoutes from "./notification.route.js";
+import donationFormRoutes from "./donationForm.route.js";
 
 const router = Router();
 
@@ -50,5 +51,8 @@ router.use("/notifications", notificationRoutes);
 
 // Dummy routes (for testing)
 router.use("/dummies", dummyRoutes);
+
+//donation form routes
+router.use("/donation-forms", donationFormRoutes);
 
 export default router;
