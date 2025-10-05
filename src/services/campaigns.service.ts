@@ -1,0 +1,404 @@
+import { Prisma, CampaignType } from '@prisma/client';
+import { CampaignRepository } from '../repositories/campaigns.repository.js';
+import { NotificationService } from './notification.service.js';
+
+interface CampaignFilters {
+  status?: string;
+  featured?: string;
+  limit?: number;
+  page?: number;
+  organizerId?: string;
+}
+
+interface UpdateCampaignData {
+  title?: string;
+  description?: string;
+  location?: string;
+  startTime?: Date;
+  endTime?: Date;
+  expectedDonors?: number;
+  contactPersonName?: string;
+  contactPersonPhone?: string;
+  requirements?: Prisma.InputJsonValue;
+  isActive?: boolean;
+  isApproved?: boolean;
+}
+
+interface CreateCampaignData {
+  title: string;
+  type: string;
+  location: string;
+  motivation: string;
+  description: string;
+  startTime: string | Date;
+  endTime: string | Date;
+  expectedDonors: string | number;
+  contactPersonName: string;
+  contactPersonPhone: string;
+  medicalEstablishmentId: string;
+  requirements?: Prisma.InputJsonValue;
+}
+
+interface AttendanceFilters {
+  status?: string;
+  page?: number;
+  limit?: number;
+}
+
+export const CampaignService = {
+  // Get all campaigns with filters
+  getCampaigns: async (filters: CampaignFilters) => {
+    try {
+      const campaigns = await CampaignRepository.findMany(filters);
+      
+      if (!campaigns) {
+        return {
+          success: true,
+          data: {
+            campaigns: [],
+            pagination: {
+              currentPage: filters.page || 1,
+              totalPages: 0,
+              totalItems: 0,
+            },
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: campaigns,
+      };
+    } catch (error) {
+      console.error('Campaign service error:', error);
+      throw new Error('Failed to fetch campaigns');
+    }
+  },
+
+  // Get upcoming campaigns
+  getUpcomingCampaigns: async (filters: CampaignFilters) => {
+    try {
+      const campaigns = await CampaignRepository.findUpcoming(filters);
+      
+      if (!campaigns) {
+        return {
+          success: true,
+          data: {
+            campaigns: [],
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: campaigns,
+      };
+    } catch (error) {
+      console.error('Upcoming campaigns service error:', error);
+      throw new Error('Failed to fetch upcoming campaigns');
+    }
+  },
+
+  // Get campaigns by organizer
+  getCampaignsByOrganizer: async (organizerId: string, filters: CampaignFilters) => {
+    try {
+      const campaigns = await CampaignRepository.findByOrganizer(organizerId, filters);
+      
+      if (!campaigns) {
+        return {
+          success: true,
+          campaigns: [],
+          pagination: {
+            page: filters.page || 1,
+            limit: filters.limit || 10,
+            total: 0,
+            totalPages: 0,
+          },
+        };
+      }
+
+      return {
+        success: true,
+        ...campaigns,
+      };
+    } catch (error) {
+      console.error('Organizer campaigns service error:', error);
+      throw new Error('Failed to fetch organizer campaigns');
+    }
+  },
+
+  // Create new campaign
+  createCampaign: async (campaignData: CreateCampaignData, organizerId: string) => {
+    try {
+      const campaign = await CampaignRepository.create({
+        title: campaignData.title,
+        type: campaignData.type as CampaignType, // CampaignType enum
+        location: campaignData.location,
+        motivation: campaignData.motivation,
+        description: campaignData.description,
+        startTime: new Date(campaignData.startTime),
+        endTime: new Date(campaignData.endTime),
+        expectedDonors: typeof campaignData.expectedDonors === 'string' 
+          ? parseInt(campaignData.expectedDonors) 
+          : campaignData.expectedDonors,
+        contactPersonName: campaignData.contactPersonName,
+        contactPersonPhone: campaignData.contactPersonPhone,
+        requirements: campaignData.requirements,
+        isApproved: false, // Requires approval
+        organizer: { connect: { id: organizerId } },
+        medicalEstablishment: { connect: { id: campaignData.medicalEstablishmentId } },
+      });
+
+      return {
+        success: true,
+        campaign,
+      };
+    } catch (error) {
+      console.error('Create campaign service error:', error);
+      throw new Error('Failed to create campaign');
+    }
+  },
+
+  // Update campaign
+  updateCampaign: async (campaignId: string, updateData: UpdateCampaignData, userId: string) => {
+    try {
+      // Check permissions first
+      const permissions = await CampaignService.checkCampaignPermissions(campaignId, userId);
+      
+      if (!permissions.canEdit) {
+        throw new Error(permissions.reasons?.[0] || 'Cannot edit this campaign');
+      }
+
+      const campaign = await CampaignRepository.update(campaignId, updateData);
+
+      return {
+        success: true,
+        campaign,
+      };
+    } catch (error) {
+      console.error('Update campaign service error:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to update campaign');
+    }
+  },
+
+  // Delete campaign
+  deleteCampaign: async (campaignId: string, userId: string) => {
+    try {
+      // Check permissions first
+      const permissions = await CampaignService.checkCampaignPermissions(campaignId, userId);
+      
+      if (!permissions.canDelete) {
+        throw new Error(permissions.reasons?.[0] || 'Cannot delete this campaign');
+      }
+
+      // Get campaign details for notifications
+      const campaign = await CampaignRepository.findById(campaignId);
+      
+      if (!campaign) {
+        throw new Error('Campaign not found');
+      }
+
+      // Notify registered donors about cancellation
+      const participants = await CampaignRepository.getCampaignParticipants(campaignId);
+      
+      for (const participant of participants) {
+        await NotificationService.createCampaignNotification(
+          participant.userId,
+          campaignId,
+          campaign.title,
+          'CAMPAIGN_CANCELLED',
+          'Campaign Cancelled',
+          `The campaign "${campaign.title}" has been cancelled. We apologize for any inconvenience.`,
+          { reason: 'Organizer cancelled the campaign' }
+        );
+      }
+
+      // Delete the campaign
+      await CampaignRepository.delete(campaignId);
+
+      return {
+        success: true,
+        message: 'Campaign deleted successfully',
+      };
+    } catch (error) {
+      console.error('Delete campaign service error:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to delete campaign');
+    }
+  },
+
+  // Get campaign analytics
+  getCampaignAnalytics: async (campaignId: string) => {
+    try {
+      const analytics = await CampaignRepository.getAnalytics(campaignId);
+      
+      if (!analytics) {
+        throw new Error('Campaign not found');
+      }
+
+      return {
+        success: true,
+        analytics,
+      };
+    } catch (error) {
+      console.error('Campaign analytics service error:', error);
+      throw new Error('Failed to fetch campaign analytics');
+    }
+  },
+
+  // Check campaign permissions
+  checkCampaignPermissions: async (campaignId: string, userId: string) => {
+    try {
+      const campaign = await CampaignRepository.findById(campaignId);
+      
+      if (!campaign) {
+        return {
+          canEdit: false,
+          canDelete: false,
+          reasons: ['Campaign not found'],
+        };
+      }
+
+      const reasons: string[] = [];
+      let canEdit = true;
+      let canDelete = true;
+
+      // Check if user is the organizer
+      if (campaign.organizerId !== userId) {
+        canEdit = false;
+        canDelete = false;
+        reasons.push('You are not the organizer of this campaign');
+      }
+
+      // Check if campaign has linked blood donations
+      const hasBloodDonations = await CampaignRepository.hasLinkedBloodDonations(campaignId);
+      if (hasBloodDonations) {
+        canEdit = false;
+        canDelete = false;
+        reasons.push('Campaign has linked blood donations');
+      }
+
+      // Check campaign status
+      const now = new Date();
+      const isActive = campaign.startTime <= now && campaign.endTime >= now;
+      const isCompleted = campaign.endTime < now;
+
+      if (isCompleted) {
+        canEdit = false;
+        canDelete = false;
+        reasons.push('Campaign has been completed');
+      }
+
+      if (isActive) {
+        canDelete = false;
+        reasons.push('Cannot delete an active campaign');
+      }
+
+      return {
+        canEdit,
+        canDelete,
+        reasons: reasons.length > 0 ? reasons : undefined,
+      };
+    } catch (error) {
+      console.error('Check permissions service error:', error);
+      return {
+        canEdit: false,
+        canDelete: false,
+        reasons: ['Error checking permissions'],
+      };
+    }
+  },
+
+  // Get campaign statistics
+  getCampaignStats: async (campaignId: string) => {
+    try {
+      const stats = await CampaignRepository.getStats(campaignId);
+      
+      if (!stats) {
+        throw new Error('Campaign not found');
+      }
+
+      return {
+        success: true,
+        stats,
+      };
+    } catch (error) {
+      console.error('Campaign stats service error:', error);
+      throw new Error('Failed to fetch campaign statistics');
+    }
+  },
+
+  // Join campaign
+  joinCampaign: async (campaignId: string, userId: string) => {
+    try {
+      const result = await CampaignRepository.addParticipant(campaignId, userId);
+      
+      return {
+        success: true,
+        participationId: result.id,
+      };
+    } catch (error) {
+      console.error('Join campaign service error:', error);
+      throw new Error(error instanceof Error ? error.message : 'Failed to join campaign');
+    }
+  },
+
+  // Mark attendance
+  markAttendance: async (campaignId: string, userId: string, donationCompleted = false) => {
+    try {
+      const participation = await CampaignRepository.markAttendance(campaignId, userId, donationCompleted);
+      
+      return {
+        success: true,
+        participation,
+      };
+    } catch (error) {
+      console.error('Mark attendance service error:', error);
+      throw new Error('Failed to mark attendance');
+    }
+  },
+
+  // Get campaign attendance
+  getCampaignAttendance: async (campaignId: string, filters: AttendanceFilters) => {
+    try {
+      const attendance = await CampaignRepository.getAttendance(campaignId, filters);
+      
+      return {
+        success: true,
+        ...attendance,
+      };
+    } catch (error) {
+      console.error('Get attendance service error:', error);
+      throw new Error('Failed to fetch campaign attendance');
+    }
+  },
+
+  // Update campaign status
+  updateCampaignStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: boolean }) => {
+    try {
+      const campaign = await CampaignRepository.updateStatus(campaignId, statusData);
+      
+      return {
+        success: true,
+        campaign,
+      };
+    } catch (error) {
+      console.error('Update status service error:', error);
+      throw new Error('Failed to update campaign status');
+    }
+  },
+
+  // Manual attendance marking
+  manualAttendanceMarking: async (campaignId: string, attendees: Array<{ userId: string; donationCompleted?: boolean }>) => {
+    try {
+      const results = await CampaignRepository.bulkMarkAttendance(campaignId, attendees);
+      
+      return {
+        success: true,
+        results,
+      };
+    } catch (error) {
+      console.error('Manual attendance service error:', error);
+      throw new Error('Failed to mark attendance manually');
+    }
+  },
+};

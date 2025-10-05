@@ -1,6 +1,19 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/user.service.js";
 import { CreateOrLoginUserRequest, ProfileCompletionRequest } from "../types/user.types.js";
+import { PrismaClient, ActivityType } from "@prisma/client";
+
+const prisma = new PrismaClient();
+
+interface AuthenticatedRequest extends Request {
+  user?: {
+    id: string;
+    email: string;
+    name: string;
+    bloodGroup?: string;
+    nic?: string;
+  };
+}
 
 export const UserController = {
   // POST /api/users/create-or-login
@@ -125,6 +138,441 @@ export const UserController = {
       console.error("Error in getUserProfile:", error);
       res.status(500).json({
         message: "Failed to get user profile",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  // GET /users/profile
+  getProfile: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to access profile",
+        });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          userDetails: true,
+        },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: "User not found",
+          message: "User profile not found",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        data: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          bloodGroup: user.bloodGroup,
+          totalDonations: user.totalDonations,
+          totalPoints: user.totalPoints,
+          profileImageUrl: user.profileImageUrl,
+          isActive: user.isActive,
+          createdAt: user.createdAt,
+          userDetails: user.userDetails ? {
+            address: user.userDetails.address,
+            city: user.userDetails.city,
+            district: user.userDetails.district,
+            phoneNumber: user.userDetails.phoneNumber,
+            emergencyContact: user.userDetails.emergencyContact,
+          } : null,
+        },
+      });
+    } catch (error) {
+      console.error("Error in getProfile:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to get user profile",
+      });
+    }
+  },
+
+  // GET /users/donation-history
+  getDonationHistory: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to access donation history",
+        });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          bloodDonations: {
+            orderBy: { endTime: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: "User not found",
+          message: "User not found",
+        });
+        return;
+      }
+
+      const lastDonation = user.bloodDonations[0];
+      const daysSinceLastDonation = lastDonation
+        ? Math.ceil((new Date().getTime() - new Date(lastDonation.endTime).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      // Check eligibility (56 days between donations)
+      const eligibleToDonate = !lastDonation || daysSinceLastDonation! >= 56;
+      const nextEligibleDate = lastDonation && !eligibleToDonate
+        ? new Date(new Date(lastDonation.endTime).getTime() + 56 * 24 * 60 * 60 * 1000)
+        : null;
+
+      res.status(200).json({
+        data: {
+          totalDonations: user.totalDonations,
+          lastDonationDate: lastDonation?.endTime || null,
+          daysSinceLastDonation,
+          eligibleToDonate,
+          nextEligibleDate: nextEligibleDate?.toISOString() || null,
+          bloodGroup: user.bloodGroup,
+        },
+      });
+    } catch (error) {
+      console.error("Error in getDonationHistory:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to get donation history",
+      });
+    }
+  },
+
+  // GET /users/eligibility
+  getEligibility: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to check eligibility",
+        });
+        return;
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          bloodDonations: {
+            orderBy: { endTime: "desc" },
+            take: 1,
+          },
+        },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: "User not found",
+          message: "User not found",
+        });
+        return;
+      }
+
+      const lastDonation = user.bloodDonations[0];
+      const daysSinceLastDonation = lastDonation
+        ? Math.ceil((new Date().getTime() - new Date(lastDonation.endTime).getTime()) / (1000 * 60 * 60 * 24))
+        : null;
+
+      const eligibleToDonate = !lastDonation || daysSinceLastDonation! >= 56;
+      const nextEligibleDate = lastDonation && !eligibleToDonate
+        ? new Date(new Date(lastDonation.endTime).getTime() + 56 * 24 * 60 * 60 * 1000)
+        : null;
+
+      const reasons = [];
+      const recommendations = [];
+
+      if (!eligibleToDonate) {
+        reasons.push(`Must wait 56 days between donations. ${56 - daysSinceLastDonation!} days remaining.`);
+        recommendations.push("Maintain a healthy diet rich in iron.");
+        recommendations.push("Stay hydrated and get adequate rest.");
+      } else {
+        recommendations.push("You are eligible to donate! Schedule an appointment.");
+        recommendations.push("Eat a healthy meal before donating.");
+        recommendations.push("Drink plenty of water before and after donation.");
+      }
+
+      res.status(200).json({
+        data: {
+          isEligible: eligibleToDonate,
+          nextEligibleDate: nextEligibleDate?.toISOString() || null,
+          reasons,
+          recommendations,
+        },
+      });
+    } catch (error) {
+      console.error("Error in getEligibility:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to check eligibility",
+      });
+    }
+  },
+
+  // PUT /users/profile
+  updateProfile: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to update profile",
+        });
+        return;
+      }
+
+      const updateData = req.body;
+
+      // Update user
+      const user = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...(updateData.name && { name: updateData.name }),
+          ...(updateData.bloodGroup && { bloodGroup: updateData.bloodGroup }),
+          ...(updateData.profileImageUrl && { profileImageUrl: updateData.profileImageUrl }),
+        },
+        include: {
+          userDetails: true,
+        },
+      });
+
+      // Update user details if provided
+      if (updateData.address || updateData.city || updateData.phoneNumber || updateData.emergencyContact) {
+        await prisma.userDetail.upsert({
+          where: { userId },
+          update: {
+            ...(updateData.address && { address: updateData.address }),
+            ...(updateData.city && { city: updateData.city }),
+            ...(updateData.phoneNumber && { phoneNumber: updateData.phoneNumber }),
+            ...(updateData.emergencyContact && { emergencyContact: updateData.emergencyContact }),
+          },
+          create: {
+            userId,
+            address: updateData.address || "",
+            city: updateData.city || "",
+            district: "COLOMBO", // Default district
+            ...(updateData.phoneNumber && { phoneNumber: updateData.phoneNumber }),
+            ...(updateData.emergencyContact && { emergencyContact: updateData.emergencyContact }),
+          },
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: user,
+      });
+    } catch (error) {
+      console.error("Error in updateProfile:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to update profile",
+      });
+    }
+  },
+
+  // GET /users/activities
+  getActivities: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      const { 
+        limit = "10", 
+        offset = "0",
+        type,
+        startDate,
+        endDate,
+        recent 
+      } = req.query;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to access activities",
+        });
+        return;
+      }
+
+      const limitNum = parseInt(limit as string);
+      const offsetNum = parseInt(offset as string);
+
+      // Build filter options
+      const options: {
+        limit: number;
+        offset: number;
+        type?: ActivityType;
+        startDate?: Date;
+        endDate?: Date;
+      } = {
+        limit: limitNum,
+        offset: offsetNum,
+      };
+
+      if (type) {
+        options.type = type as ActivityType;
+      }
+
+      if (recent === "true") {
+        // Get activities from last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        options.startDate = thirtyDaysAgo;
+        options.endDate = new Date();
+      } else if (startDate && endDate) {
+        options.startDate = new Date(startDate as string);
+        options.endDate = new Date(endDate as string);
+      }
+
+      // Use ActivityService to get activities with proper filtering
+      const { ActivityService } = await import("../services/activity.service.js");
+      const result = await ActivityService.getUserActivities(userId, options);
+
+      // Get activity stats
+      const stats = await ActivityService.getActivityStats(userId);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          activities: result.activities,
+          stats,
+          pagination: {
+            currentPage: Math.floor(offsetNum / limitNum) + 1,
+            totalItems: result.total,
+            hasMore: result.hasMore,
+            limit: limitNum,
+            offset: offsetNum,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error in getActivities:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to get activities",
+      });
+    }
+  },
+
+  // GET /users/notifications
+  getNotifications: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      const { limit = "10" } = req.query;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to access notifications",
+        });
+        return;
+      }
+
+      const limitNum = parseInt(limit as string);
+
+      const notifications = await prisma.notification.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: limitNum,
+      });
+
+      res.status(200).json({
+        data: { notifications },
+      });
+    } catch (error) {
+      console.error("Error in getNotifications:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to get notifications",
+      });
+    }
+  },
+
+  // POST /users/:userId/donation-completed - Update user stats after donation
+  updateDonationStats: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const { pointsEarned = 100 } = req.body;
+
+      if (!userId) {
+        res.status(400).json({
+          message: "User ID is required",
+        });
+        return;
+      }
+
+      const result = await UserService.updateDonationStats(userId, pointsEarned);
+      
+      res.status(200).json({
+        message: "Donation stats updated successfully",
+        data: result,
+      });
+    } catch (error) {
+      console.error("Error in updateDonationStats:", error);
+      res.status(500).json({
+        message: "Failed to update donation stats",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  // GET /users/:userId/badge-info - Get badge information for user
+  getBadgeInfo: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        res.status(400).json({
+          message: "User ID is required",
+        });
+        return;
+      }
+
+      const badgeInfo = await UserService.getUserBadgeInfo(userId);
+      
+      res.status(200).json({
+        data: badgeInfo,
+      });
+    } catch (error) {
+      console.error("Error in getBadgeInfo:", error);
+      res.status(500).json({
+        message: "Failed to get badge information",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

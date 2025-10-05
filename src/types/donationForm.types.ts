@@ -1,6 +1,7 @@
 export interface DonationFormData {
   userId?: string;
   donorId?: string;
+  appointmentId?: string;
   dateTime?: Date | string;
   hasDonatedBefore?: boolean;
   anyDifficulty?: string;

@@ -6,6 +6,9 @@ import {
   UserResponse,
   UserExistsResponse
 } from "../types/user.types.js";
+import { BadgeService } from "./badge.service.js";
+import { ActivityService } from "./activity.service.js";
+import { prisma } from "../config/db.js";
 
 export const UserService = {
   // Create user if not exists, or return existing user
@@ -114,5 +117,136 @@ export const UserService = {
       return 'STAFF';
     }
     return 'DONOR'; // Default role
+  },
+
+  // Update user donation stats and badge after a successful donation
+  updateDonationStats: async (
+    userId: string, 
+    pointsEarned: number = 100,
+    donationData?: {
+      campaignTitle?: string;
+      location?: string;
+      bloodType?: string;
+      volume?: number;
+    }
+  ): Promise<{ user: UserResponse; badgePromoted: boolean; oldBadge?: string; newBadge?: string }> => {
+    // Get current user data
+    const currentUser = await UserRepository.getUserById(userId);
+    if (!currentUser) {
+      throw new Error('User not found');
+    }
+
+    const oldBadge = currentUser.donationBadge;
+    const newTotalDonations = currentUser.totalDonations + 1;
+    const newTotalPoints = currentUser.totalPoints + pointsEarned;
+
+    // Calculate new badge based on total donations
+    const newBadge = BadgeService.calculateBadge(newTotalDonations);
+    const badgePromoted = BadgeService.isPromotion(oldBadge, newBadge);
+
+    // Update user stats in database
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        totalDonations: newTotalDonations,
+        totalPoints: newTotalPoints,
+        donationBadge: newBadge,
+        updatedAt: new Date(),
+      },
+    });
+
+    // Also update UserHomeStats if it exists
+    await prisma.userHomeStats.upsert({
+      where: { userId },
+      update: {
+        totalDonations: newTotalDonations,
+        totalPoints: newTotalPoints,
+        lastDonationDate: new Date(),
+        lastUpdated: new Date(),
+      },
+      create: {
+        userId,
+        totalDonations: newTotalDonations,
+        totalPoints: newTotalPoints,
+        lastDonationDate: new Date(),
+        donationStreak: 1,
+        eligibleToDonate: false, // Set to false right after donation
+        lastUpdated: new Date(),
+      },
+    });
+
+    // Create donation completed activity
+    try {
+      await ActivityService.createDonationActivity(userId, {
+        campaignTitle: donationData?.campaignTitle,
+        location: donationData?.location,
+        bloodType: donationData?.bloodType || currentUser.bloodGroup || undefined,
+        volume: donationData?.volume,
+        pointsEarned,
+      });
+
+      // Create points earned activity
+      await ActivityService.createPointsEarnedActivity(userId, {
+        pointsEarned,
+        totalPoints: newTotalPoints,
+        reason: "Blood donation completed",
+      });
+
+      // Create badge promotion activity if promoted
+      if (badgePromoted) {
+        await ActivityService.createBadgeEarnedActivity(userId, {
+          oldBadge,
+          newBadge,
+          totalDonations: newTotalDonations,
+        });
+      }
+    } catch (error) {
+      console.error("Error creating activities:", error);
+      // Don't fail the donation if activity creation fails
+    }
+
+    const isProfileComplete = await UserRepository.isProfileComplete(updatedUser.id);
+
+    const userResponse: UserResponse = {
+      id: updatedUser.id,
+      email: updatedUser.email,
+      name: updatedUser.name,
+      bloodGroup: updatedUser.bloodGroup,
+      isProfileComplete,
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt,
+      totalDonations: updatedUser.totalDonations,
+      totalPoints: updatedUser.totalPoints,
+      donationBadge: updatedUser.donationBadge,
+      isActive: updatedUser.isActive,
+    };
+
+    return {
+      user: userResponse,
+      badgePromoted,
+      oldBadge: badgePromoted ? oldBadge : undefined,
+      newBadge: badgePromoted ? newBadge : undefined,
+    };
+  },
+
+  // Get badge information for a user
+  getUserBadgeInfo: async (userId: string) => {
+    const user = await UserRepository.getUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const badgeInfo = BadgeService.getBadgeDisplayInfo(user.donationBadge);
+    const nextBadgeInfo = BadgeService.getNextBadgeInfo(user.donationBadge, user.totalDonations);
+
+    return {
+      currentBadge: {
+        ...badgeInfo,
+        badge: user.donationBadge,
+      },
+      nextBadge: nextBadgeInfo,
+      totalDonations: user.totalDonations,
+      allBadges: BadgeService.getAllBadgeThresholds(),
+    };
   },
 };

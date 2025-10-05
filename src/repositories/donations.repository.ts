@@ -11,6 +11,7 @@ export const DonationsRepository = {
     const payload: Record<string, unknown> = {
       dateTime,
       donorId: data.donorId || undefined,
+      appointmentId: data.appointmentId || undefined,
       anyDifficulty: data.anyDifficulty || "",
       anyDiseases: data.anyDiseases ? (data.anyDiseases as unknown) : undefined,
       // Ensure required boolean fields are set (default false when not provided)
@@ -47,6 +48,14 @@ export const DonationsRepository = {
       delete payload.userId;
     }
 
+    // If appointmentId provided, use nested connect to set relation
+    if (data.appointmentId) {
+      // @ts--expect-error - will cast below
+      payload.appointment = { connect: { id: data.appointmentId } };
+      // remove appointmentId scalar if present
+      delete payload.appointmentId;
+    }
+
     const created = await prisma.bloodDonationForm.create({
       // Cast to any/unchecked create to avoid strict typing churn; shape matches schema
       data: payload as unknown as Parameters<typeof prisma.bloodDonationForm.create>[0]['data'],
@@ -60,7 +69,8 @@ export const DonationsRepository = {
     return await prisma.bloodDonationForm.findUnique({
       where: { id },
       include: {
-        user: true,   
+        user: true,
+        appointment: true,
       },
     });
   }
