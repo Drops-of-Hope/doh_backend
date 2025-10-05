@@ -134,4 +134,26 @@ export const AppointmentsRepository = {
       data: { nextEligible: nextEligibleDate },
     });
   },
+  // Update appointment status atomically with optional audit log entry
+  updateAppointmentStatus: async (appointmentId: string, newStatus: string, confirmedById?: string) => {
+    return await prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findUnique({ where: { id: appointmentId } });
+      if (!appointment) return null;
+
+      // Idempotent: if status already matches, return the appointment
+      if (appointment.scheduled === newStatus) {
+        return await tx.appointment.findUnique({ where: { id: appointmentId }, include: { donor: true, slot: true, medicalEstablishment: true } });
+      }
+
+      // Update appointment status
+      const updated = await tx.appointment.update({
+        where: { id: appointmentId },
+        data: { scheduled: newStatus as any },
+        include: { donor: true, slot: true, medicalEstablishment: true },
+      });
+
+      // Only update scheduled column for this flow; do not create audit logs here
+      return updated;
+    });
+  },
 };

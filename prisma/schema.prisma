@@ -17,11 +17,11 @@ model User {
   createdAt              DateTime                @default(now())
   donationBadge          DonationBadge           @default(BRONZE)
   isActive               Boolean                 @default(true)
+  nextEligible           DateTime?
   profileImageUrl        String?
   totalDonations         Int                     @default(0)
   totalPoints            Int                     @default(0)
   updatedAt              DateTime                @updatedAt
-  nextEligible           DateTime?
   activities             Activity[]
   appointments           Appointment[]
   auditLogs              AuditLog[]
@@ -205,8 +205,9 @@ model BloodDonationForm {
   highRisk           Boolean
   hadWeightLoss      Boolean
   userId             String?
-  appointment        Appointment?
+  appointmentId      String?
   bloodDonation      BloodDonation?
+  Appointment        Appointment?   @relation(fields: [appointmentId], references: [id])
   user               User?          @relation(fields: [userId], references: [id])
 }
 
@@ -277,15 +278,14 @@ model Campaign {
 model Appointment {
   id                     String               @id @default(uuid())
   donorId                String
-  medicalEstablishmentId String
-  bdfId                  String?              @unique
   scheduled              AppointmentStatus
   appointmentDate        DateTime
+  medicalEstablishmentId String
   slotId                 String
-  bloodDonationForm      BloodDonationForm?   @relation(fields: [bdfId], references: [id], onDelete: Restrict)
   donor                  User                 @relation(fields: [donorId], references: [id])
   medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
   slot                   AppointmentSlot      @relation(fields: [slotId], references: [id])
+  BloodDonationForm      BloodDonationForm[]
   bloodTests             BloodTest[]
 }
 
@@ -536,6 +536,8 @@ enum ActivityType {
   BADGE_EARNED
   POINTS_EARNED
   EMERGENCY_RESPONDED
+  CAMPAIGN_UPDATED
+  CAMPAIGN_CANCELLED
 }
 
 enum NotificationType {
@@ -545,6 +547,8 @@ enum NotificationType {
   DONATION_ELIGIBLE
   BADGE_EARNED
   GENERAL
+  CAMPAIGN_UPDATED
+  CAMPAIGN_CANCELLED
 }
 
 enum ParticipationStatus {

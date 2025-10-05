@@ -22,4 +22,7 @@ router.get("/:userId", AppointmentsController.getUserAppointments);
 // Get appointments by medical establishment ID
 router.get("/medicalEstablishment/:medicalEstablishmentId", AppointmentsController.getAppointmentsByMedicalEstablishment);
 
+// Update appointment status (e.g., confirm attendance)
+router.post("/:appointmentId/status", AppointmentsController.updateAppointmentStatus);
+
 export default router;
