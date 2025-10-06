@@ -97,3 +97,7 @@ export {
   RecentDonorsRequest,
   FrequentDonorsRequest
 } from './userSearch.types.js';
+
+export {
+  UpdateEligibilityInput,
+} from './eligibility.types.js';
