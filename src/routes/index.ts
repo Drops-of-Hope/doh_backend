@@ -13,6 +13,7 @@ import emergenciesRoutes from "./emergencies.route.js";
 import qrRoutes from "./qr.route.js";
 import notificationRoutes from "./notification.route.js";
 import donationFormRoutes from "./donationForm.route.js";
+import eligibilityRoutes from "./eligibility.route.js";
 
 const router = Router();
 
@@ -54,5 +55,8 @@ router.use("/dummies", dummyRoutes);
 
 //donation form routes
 router.use("/donation-forms", donationFormRoutes);
+
+//route to update availability in case of risk factors in blood donation form
+router.use("/eligibility", eligibilityRoutes);
 
 export default router;
