@@ -21,9 +21,12 @@ export const HealthVitalsController = {
       });
 
       res.status(201).json(newHealthVital);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating health vital:", error);
-      res.status(500).json({ message: "Internal server error", error: error.message });
+
+      // Narrow type safely
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ message: "Internal server error", error: message });
     }
   },
 };
