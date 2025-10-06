@@ -101,3 +101,8 @@ export {
 export {
   UpdateEligibilityInput,
 } from './eligibility.types.js';
+
+export {
+  HealthVital,
+  CreateHealthVitalInput
+} from './healthVitals.types.js';
