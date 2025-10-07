@@ -106,3 +106,7 @@ export {
   HealthVital,
   CreateHealthVitalInput
 } from './healthVitals.types.js';
+
+export {
+  CreateBloodDonationInput
+} from './bloodDonation.types.js';
