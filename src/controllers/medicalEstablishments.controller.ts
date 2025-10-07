@@ -59,4 +59,35 @@ export const MedicalEstablishmentsController = {
       });
     }
   },
+
+  getInventory: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { establishmentId } = req.params;
+
+      if (!establishmentId) {
+        res.status(400).json({
+          message: "Medical establishment ID is required",
+        });
+        return;
+      }
+
+      const inventory =
+        await MedicalEstablishmentsService.getInventory(establishmentId);
+
+      if (!inventory) {
+        res.status(404).json({
+          message: "No inventory found for the specified establishment",
+        });
+        return;
+      }
+
+      res.status(200).json(inventory);
+    } catch (error) {
+      console.error("Error fetching inventory details:", error);
+      res.status(500).json({
+        message: "Failed to retrieve inventory details",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
 };

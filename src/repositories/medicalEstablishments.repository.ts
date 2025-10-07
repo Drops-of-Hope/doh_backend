@@ -38,4 +38,19 @@ export const MedicalEstablishmentsRepository = {
     return availableSlots;
   },
 
+  getInventoryByEstablishmentId: async (establishmentId: string) => {
+    const inventory = await prisma.inventory.findMany({
+      where: {
+        EstablishmentId: establishmentId,
+      },
+      include: {
+        blood: true,       // Include all blood units in this inventory
+        bloodTests: true,  // Include all blood tests related to this inventory
+        medicalEstablishment: true, // Include establishment info if needed
+      },
+    });
+
+    return inventory;
+  },
+
 };
