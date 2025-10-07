@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { DonationFormService } from "../services/donationForm.service";
+import { DonationFormService } from "../services/donationForm.service.js";
 
 export const DonationFormController = {
 

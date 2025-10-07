@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { EligibilityService } from '../services/eligibility.service';
+import { EligibilityService } from '../services/eligibility.service.js';
 
 export const EligibilityController = {
 

@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { MedicalEstablishment } from "@prisma/client";
 import { MedicalEstablishmentsService } from "../services/medicalEstablishments.service.js";
 
 export const MedicalEstablishmentsController = {
@@ -11,16 +12,31 @@ export const MedicalEstablishmentsController = {
     try {
       const { district } = req.query;
 
-      if (!district || typeof district !== "string") {
-        res.status(400).json({
-          message: "District query parameter is required and must be a string",
-        });
-        return;
+      let establishments;
+      if (district && typeof district === "string") {
+        establishments =
+          await MedicalEstablishmentsService.getMedicalEstablishments(district);
+      } else {
+        establishments =
+          await MedicalEstablishmentsService.getAllMedicalEstablishments();
       }
 
-      const establishments =
-        await MedicalEstablishmentsService.getMedicalEstablishments(district);
-      res.status(200).json(establishments);
+      // Ensure response format matches frontend requirements
+      const formattedEstablishments = establishments.map(
+        (est: MedicalEstablishment) => ({
+          id: est.id,
+          name: est.name,
+          address: est.address,
+          region: est.region,
+          email: est.email,
+          bloodCapacity: est.bloodCapacity,
+          isBloodBank: est.isBloodBank,
+        })
+      );
+
+      res.status(200).json({
+        data: formattedEstablishments,
+      });
     } catch (error) {
       console.error("Error fetching establishments:", error);
       res.status(500).json({ message: "Internal server error" });

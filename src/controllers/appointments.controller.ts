@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { AppointmentsService } from "../services/appointments.service.js";
 import { PrismaClient } from "@prisma/client";
-import { AppointmentWhereClause, AppointmentUpdateData } from "../types/appointment.types.js";
+import { AppointmentUpdateData } from "../types/appointment.types.js";
 
 const prisma = new PrismaClient();
 
@@ -110,14 +110,7 @@ export const AppointmentsController = {
 
       const appointments = await AppointmentsService.getAppointmentsByUserId(userId);
 
-      if (!appointments || appointments.length === 0) {
-        res.status(404).json({
-          message: "No appointments found for this user",
-        });
-        return;
-      }
-
-      res.status(200).json(appointments);
+      res.status(200).json(appointments || []);
     } catch (error) {
       console.error("Error getting user appointments:", error);
       res.status(500).json({
@@ -155,7 +148,6 @@ export const AppointmentsController = {
   getAuthenticatedUserAppointments: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id;
-      const { status, limit = "10" } = req.query;
 
       if (!userId) {
         res.status(401).json({
@@ -166,39 +158,24 @@ export const AppointmentsController = {
         return;
       }
 
-      const limitNum = parseInt(limit as string);
-      const whereClause: AppointmentWhereClause = { donorId: userId };
-
-      if (status === "upcoming") {
-        whereClause.appointmentDate = { gte: new Date() };
-        whereClause.scheduled = "PENDING";
-      }
-
       const appointments = await prisma.appointment.findMany({
-        where: whereClause,
+        where: { donorId: userId },
         include: {
           medicalEstablishment: true,
           slot: true,
         },
-        orderBy: { appointmentDate: "asc" },
-        take: limitNum,
+        orderBy: { appointmentDate: "desc" },
       });
 
       res.status(200).json({
+        success: true,
         data: appointments.map(apt => ({
           id: apt.id,
           donorId: apt.donorId,
-          appointmentDateTime: apt.appointmentDate,
           scheduled: apt.scheduled,
-          location: apt.medicalEstablishment.address,
-          notes: null,
-          createdAt: apt.appointmentDate,
-          medicalEstablishment: {
-            id: apt.medicalEstablishment.id,
-            name: apt.medicalEstablishment.name,
-            address: apt.medicalEstablishment.address,
-            district: apt.medicalEstablishment.region,
-          },
+          appointmentDate: apt.appointmentDate,
+          slotId: apt.slotId,
+          medicalEstablishmentId: apt.medicalEstablishmentId,
         })),
       });
     } catch (error) {
@@ -254,6 +231,76 @@ export const AppointmentsController = {
         return;
       }
 
+      // Check user eligibility
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { isActive: true, nextEligible: true },
+      });
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: "User not found",
+          message: "User account not found",
+        });
+        return;
+      }
+
+      if (!user.isActive) {
+        res.status(400).json({
+          success: false,
+          error: "Account inactive",
+          message: "Your account is not active. Please contact support.",
+        });
+        return;
+      }
+
+      if (user.nextEligible && user.nextEligible > parsedDate) {
+        res.status(400).json({
+          success: false,
+          error: "Not eligible for donation",
+          message: `You are not eligible to donate until ${user.nextEligible.toLocaleDateString()}`,
+        });
+        return;
+      }
+
+      // Check if medical establishment exists
+      const medicalEstablishment = await prisma.medicalEstablishment.findUnique({
+        where: { id: medicalEstablishmentId },
+      });
+
+      if (!medicalEstablishment) {
+        res.status(404).json({
+          success: false,
+          error: "Medical establishment not found",
+          message: "The specified medical establishment does not exist",
+        });
+        return;
+      }
+
+      // Check if slot exists and is available
+      const slot = await prisma.appointmentSlot.findUnique({
+        where: { id: slotId },
+      });
+
+      if (!slot) {
+        res.status(404).json({
+          success: false,
+          error: "Appointment slot not found",
+          message: "The specified appointment slot does not exist",
+        });
+        return;
+      }
+
+      if (!slot.isAvailable) {
+        res.status(400).json({
+          success: false,
+          error: "Slot not available",
+          message: "The specified appointment slot is not available",
+        });
+        return;
+      }
+
       const appointment = await prisma.appointment.create({
         data: {
           donorId: userId,
@@ -261,10 +308,6 @@ export const AppointmentsController = {
           appointmentDate: parsedDate,
           medicalEstablishmentId,
           scheduled: "PENDING",
-        },
-        include: {
-          medicalEstablishment: true,
-          slot: true,
         },
       });
 
@@ -277,14 +320,22 @@ export const AppointmentsController = {
           description: `Appointment scheduled for ${parsedDate.toLocaleDateString()}`,
           metadata: {
             appointmentId: appointment.id,
-            medicalEstablishmentName: appointment.medicalEstablishment.name,
+            medicalEstablishmentName: medicalEstablishment.name,
           },
         },
       });
 
       res.status(201).json({
         success: true,
-        data: appointment,
+        data: {
+          id: appointment.id,
+          donorId: appointment.donorId,
+          scheduled: appointment.scheduled,
+          appointmentDate: appointment.appointmentDate,
+          slotId: appointment.slotId,
+          medicalEstablishmentId: appointment.medicalEstablishmentId,
+        },
+        message: "Appointment created successfully",
       });
     } catch (error) {
       console.error("Error creating authenticated appointment:", error);

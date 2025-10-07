@@ -8,6 +8,10 @@ export const MedicalEstablishmentsService = {
     );
   },
 
+  getAllMedicalEstablishments: async () => {
+    return MedicalEstablishmentsRepository.getAllMedicalEstablishments();
+  },
+
   getSlots: async (establishmentId: string, date: string) => {
     // Validate date format if necessary
     if (isNaN(Date.parse(date))) {

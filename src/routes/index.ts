@@ -14,6 +14,7 @@ import qrRoutes from "./qr.route.js";
 import notificationRoutes from "./notification.route.js";
 import donationFormRoutes from "./donationForm.route.js";
 import eligibilityRoutes from "./eligibility.route.js";
+import activitiesRoutes from "./activities.route.js";
 
 const router = Router();
 
@@ -49,6 +50,9 @@ router.use("/qr", qrRoutes);
 
 // Notification routes
 router.use("/notifications", notificationRoutes);
+
+// Activities routes
+router.use("/activities", activitiesRoutes);
 
 // Dummy routes (for testing)
 router.use("/dummies", dummyRoutes);
