@@ -9,4 +9,7 @@ router.get('/:inventoryId', BloodTestController.findAll);
 // Route to get blood unit info by blood unit ID
 router.get('/unit/:bloodId', BloodTestController.findBloodUnit);
 
+//Route to test blood type 
+router.post('/type/:bloodId', BloodTestController.updateBloodType);
+
 export default router;

@@ -1,5 +1,5 @@
 // src/services/bloodTest.service.ts
-import { BloodTestRepository } from '../repositories/bloodTest.repository';
+import { BloodTestRepository } from "../repositories/bloodTest.repository";
 
 export const BloodTestService = {
   // Get all blood units awaiting testing for a specific medical establishment inventory
@@ -27,5 +27,19 @@ export const BloodTestService = {
       throw new Error("Failed to fetch blood unit");
     }
   },
-  
+
+  // Update the ABOTest (blood type) for a blood unit. Creates a BloodTest record if needed.
+  async updateBloodType(bloodId: string, aboTest: string) {
+    try {
+      if (!bloodId || !aboTest) {
+        throw new Error("Missing bloodId or aboTest");
+      }
+
+      const updated = await BloodTestRepository.upsertABOTest(bloodId, aboTest);
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateBloodType:", error);
+      throw new Error("Failed to update blood type");
+    }
+  },
 };
