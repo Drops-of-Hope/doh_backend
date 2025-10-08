@@ -207,7 +207,7 @@ model BloodDonationForm {
   userId             String?
   appointmentId      String?
   bloodDonation      BloodDonation?
-  Appointment        Appointment?   @relation(fields: [appointmentId], references: [id])
+  appointment        Appointment?   @relation(fields: [appointmentId], references: [id])
   user               User?          @relation(fields: [userId], references: [id])
 }
 
@@ -285,7 +285,7 @@ model Appointment {
   donor                  User                 @relation(fields: [donorId], references: [id])
   medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
   slot                   AppointmentSlot      @relation(fields: [slotId], references: [id])
-  BloodDonationForm      BloodDonationForm[]
+  bloodDonationForms     BloodDonationForm[]
   bloodTests             BloodTest[]
 }
 
