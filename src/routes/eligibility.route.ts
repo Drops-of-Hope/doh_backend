@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { EligibilityController } from "../controllers/eligibility.controller";
+import { EligibilityController } from "../controllers/eligibility.controller.js";
 
 const router = Router();
 

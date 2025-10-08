@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/user.service.js";
 import { CreateOrLoginUserRequest, ProfileCompletionRequest } from "../types/user.types.js";
-import { PrismaClient, ActivityType } from "@prisma/client";
+import { PrismaClient, ActivityType, BloodGroup, District, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -207,7 +207,9 @@ export const UserController = {
   getDonationHistory: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id;
-
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const status = req.query.status as string;
       if (!userId) {
         res.status(401).json({
           success: false,
@@ -217,15 +219,64 @@ export const UserController = {
         return;
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-        include: {
-          bloodDonations: {
-            orderBy: { endTime: "desc" },
-            take: 1,
+      const skip = (page - 1) * limit;
+      
+      // Build where clause for filtering
+      const where = { userId };
+      if (status && ['completed', 'pending', 'cancelled'].includes(status)) {
+        // Since our schema doesn't have status field, we'll consider all as completed for now
+        // This can be enhanced when schema is updated
+      }
+
+      // Get user and donation data
+      const [user, totalDonations, bloodDonations, campaignParticipations] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            totalDonations: true,
+            totalPoints: true,
+            donationBadge: true,
           },
-        },
-      });
+        }),
+        prisma.bloodDonation.count({ where }),
+        prisma.bloodDonation.findMany({
+          where,
+          orderBy: { endTime: "desc" },
+          skip,
+          take: limit,
+          include: {
+            bloodDonationForm: {
+              include: {
+                appointment: {
+                  include: {
+                    medicalEstablishment: {
+                      select: {
+                        name: true,
+                        address: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+        prisma.campaignParticipation.findMany({
+          where: {
+            userId,
+            donationCompleted: true,
+          },
+          include: {
+            campaign: {
+              select: {
+                id: true,
+                title: true,
+                location: true,
+              },
+            },
+          },
+        }),
+      ]);
 
       if (!user) {
         res.status(404).json({
@@ -236,25 +287,71 @@ export const UserController = {
         return;
       }
 
-      const lastDonation = user.bloodDonations[0];
-      const daysSinceLastDonation = lastDonation
-        ? Math.ceil((new Date().getTime() - new Date(lastDonation.endTime).getTime()) / (1000 * 60 * 60 * 24))
-        : null;
+      // Map donations to response format
+      const donations = bloodDonations.map((donation) => {
+        const appointment = donation.bloodDonationForm?.appointment;
+        const medicalEstablishment = appointment?.medicalEstablishment;
+        
+        // Find associated campaign participation
+        const campaignParticipation = campaignParticipations.find(
+          (p) => p.scannedAt && 
+          Math.abs(new Date(p.scannedAt).getTime() - new Date(donation.endTime).getTime()) < 24 * 60 * 60 * 1000 // Within 24 hours
+        );
 
-      // Check eligibility (56 days between donations)
-      const eligibleToDonate = !lastDonation || daysSinceLastDonation! >= 56;
-      const nextEligibleDate = lastDonation && !eligibleToDonate
-        ? new Date(new Date(lastDonation.endTime).getTime() + 56 * 24 * 60 * 60 * 1000)
-        : null;
+        return {
+          id: donation.id,
+          date: donation.endTime.toISOString(),
+          location: medicalEstablishment?.name || campaignParticipation?.campaign?.location || "Unknown Location",
+          type: "blood" as const, // Default to blood for now
+          status: "completed" as const, // All existing donations are completed
+          volume: "450ml", // Standard blood donation volume
+          campaign: campaignParticipation?.campaign ? {
+            id: campaignParticipation.campaign.id,
+            title: campaignParticipation.campaign.title,
+          } : undefined,
+          medicalEstablishment: {
+            name: medicalEstablishment?.name || "Unknown Medical Facility",
+            address: medicalEstablishment?.address || "Address not available",
+          },
+          healthMetrics: {
+            // These would come from blood donation form in a complete implementation
+            hemoglobin: undefined,
+            bloodPressure: undefined,
+            weight: undefined,
+            pulse: undefined,
+          },
+          points: donation.pointsEarned,
+          notes: undefined,
+        };
+      });
+
+      // Calculate pagination
+      const totalPages = Math.ceil(totalDonations / limit);
+      const hasNext = page < totalPages;
+      const hasPrev = page > 1;
+
+      // Calculate donation stats
+      const totalVolume = totalDonations * 450; // Assuming 450ml per donation
+      const donorLevel = user.donationBadge; // Map to string
+      const currentStreak = 0; // Would need additional logic to calculate
+      const longestStreak = 0; // Would need additional logic to calculate
 
       res.status(200).json({
-        data: {
+        donations,
+        stats: {
           totalDonations: user.totalDonations,
-          lastDonationDate: lastDonation?.endTime || null,
-          daysSinceLastDonation,
-          eligibleToDonate,
-          nextEligibleDate: nextEligibleDate?.toISOString() || null,
-          bloodGroup: user.bloodGroup,
+          totalVolume,
+          donorLevel,
+          pointsEarned: user.totalPoints,
+          currentStreak,
+          longestStreak,
+        },
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: totalDonations,
+          hasNext,
+          hasPrev,
         },
       });
     } catch (error) {
@@ -357,36 +454,110 @@ export const UserController = {
 
       const updateData = req.body;
 
-      // Update user
-      const user = await prisma.user.update({
-        where: { id: userId },
-        data: {
-          ...(updateData.name && { name: updateData.name }),
-          ...(updateData.bloodGroup && { bloodGroup: updateData.bloodGroup }),
-          ...(updateData.profileImageUrl && { profileImageUrl: updateData.profileImageUrl }),
-        },
-        include: {
-          userDetails: true,
-        },
-      });
+      // Update user table fields
+      const userUpdateData: {
+        name?: string;
+        bloodGroup?: BloodGroup;
+        profileImageUrl?: string;
+      } = {};
+      if (updateData.name) userUpdateData.name = updateData.name;
+      if (updateData.bloodGroup) userUpdateData.bloodGroup = updateData.bloodGroup;
+      if (updateData.profileImageUrl) userUpdateData.profileImageUrl = updateData.profileImageUrl;
 
-      // Update user details if provided
-      if (updateData.address || updateData.city || updateData.phoneNumber || updateData.emergencyContact) {
+      let user;
+      if (Object.keys(userUpdateData).length > 0) {
+        user = await prisma.user.update({
+          where: { id: userId },
+          data: userUpdateData,
+          include: {
+            userDetails: true,
+          },
+        });
+      } else {
+        // If no user fields to update, just fetch the user
+        user = await prisma.user.findUnique({
+          where: { id: userId },
+          include: {
+            userDetails: true,
+          },
+        });
+      }
+
+      // Handle UserDetail fields (address, city, district, phoneNumber, emergencyContact, allergies, medicalConditions)
+      const userDetailFields = [
+        'address', 'city', 'district', 'phoneNumber', 'emergencyContact', 'allergies', 'medicalConditions'
+      ];
+      
+      const hasUserDetailUpdates = userDetailFields.some(field => updateData[field] !== undefined);
+
+      if (hasUserDetailUpdates) {
+        const userDetailUpdateData: {
+          address?: string;
+          city?: string;
+          district?: District;
+          phoneNumber?: string;
+          emergencyContact?: string;
+          allergies?: Prisma.InputJsonValue;
+          medicalConditions?: Prisma.InputJsonValue;
+        } = {};
+        const userDetailCreateData: {
+          userId: string;
+          address: string;
+          city: string;
+          district: District;
+          phoneNumber?: string;
+          emergencyContact?: string;
+          allergies?: Prisma.InputJsonValue;
+          medicalConditions?: Prisma.InputJsonValue;
+        } = {
+          userId,
+          address: "",
+          city: "",
+          district: "COLOMBO", // Default district
+        };
+
+        // Prepare update data (only include fields that are provided)
+        if (updateData.address !== undefined) {
+          userDetailUpdateData.address = updateData.address;
+          userDetailCreateData.address = updateData.address || "";
+        }
+        if (updateData.city !== undefined) {
+          userDetailUpdateData.city = updateData.city;
+          userDetailCreateData.city = updateData.city || "";
+        }
+        if (updateData.district !== undefined) {
+          userDetailUpdateData.district = updateData.district;
+          userDetailCreateData.district = updateData.district;
+        }
+        if (updateData.phoneNumber !== undefined) {
+          userDetailUpdateData.phoneNumber = updateData.phoneNumber;
+          if (updateData.phoneNumber) userDetailCreateData.phoneNumber = updateData.phoneNumber;
+        }
+        if (updateData.emergencyContact !== undefined) {
+          userDetailUpdateData.emergencyContact = updateData.emergencyContact;
+          if (updateData.emergencyContact) userDetailCreateData.emergencyContact = updateData.emergencyContact;
+        }
+        if (updateData.allergies !== undefined) {
+          userDetailUpdateData.allergies = updateData.allergies;
+          if (updateData.allergies) userDetailCreateData.allergies = updateData.allergies;
+        }
+        if (updateData.medicalConditions !== undefined) {
+          userDetailUpdateData.medicalConditions = updateData.medicalConditions;
+          if (updateData.medicalConditions) userDetailCreateData.medicalConditions = updateData.medicalConditions;
+        }
+
+        // Use upsert to either update existing record or create new one
         await prisma.userDetail.upsert({
           where: { userId },
-          update: {
-            ...(updateData.address && { address: updateData.address }),
-            ...(updateData.city && { city: updateData.city }),
-            ...(updateData.phoneNumber && { phoneNumber: updateData.phoneNumber }),
-            ...(updateData.emergencyContact && { emergencyContact: updateData.emergencyContact }),
-          },
-          create: {
-            userId,
-            address: updateData.address || "",
-            city: updateData.city || "",
-            district: "COLOMBO", // Default district
-            ...(updateData.phoneNumber && { phoneNumber: updateData.phoneNumber }),
-            ...(updateData.emergencyContact && { emergencyContact: updateData.emergencyContact }),
+          update: userDetailUpdateData,
+          create: userDetailCreateData,
+        });
+
+        // Fetch updated user with userDetails
+        user = await prisma.user.findUnique({
+          where: { id: userId },
+          include: {
+            userDetails: true,
           },
         });
       }
@@ -394,6 +565,7 @@ export const UserController = {
       res.status(200).json({
         success: true,
         data: user,
+        message: "Profile updated successfully",
       });
     } catch (error) {
       console.error("Error in updateProfile:", error);
@@ -574,6 +746,358 @@ export const UserController = {
       res.status(500).json({
         message: "Failed to get badge information",
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  // GET /users/appointments
+  getUserAppointments: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to access appointments",
+        });
+        return;
+      }
+
+      const skip = (page - 1) * limit;
+      
+      // Build where clause
+      const where = { donorId: userId };
+
+      const [totalAppointments, appointments] = await Promise.all([
+        prisma.appointment.count({ where }),
+        prisma.appointment.findMany({
+          where,
+          orderBy: { appointmentDate: "desc" },
+          skip,
+          take: limit,
+          include: {
+            medicalEstablishment: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+                email: true,
+              },
+            },
+            slot: {
+              select: {
+                startTime: true,
+                endTime: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      // Map appointments to response format
+      const mappedAppts = appointments.map((apt) => {
+        const timeString = apt.slot?.startTime || '09:00';
+
+        return {
+          id: apt.id,
+          hospital: apt.medicalEstablishment.name,
+          date: apt.appointmentDate.toISOString(),
+          time: timeString,
+          location: apt.medicalEstablishment.address,
+          confirmationId: apt.id, // Using appointment ID as confirmation ID
+          status: apt.scheduled.toLowerCase() as 'upcoming' | 'confirmed' | 'completed' | 'cancelled',
+          type: 'blood_donation' as const,
+          notes: undefined,
+          medicalEstablishment: {
+            id: apt.medicalEstablishment.id,
+            name: apt.medicalEstablishment.name,
+            address: apt.medicalEstablishment.address,
+            contactNumber: apt.medicalEstablishment.email || 'Not available',
+          },
+          campaign: undefined, // Would need to link campaigns to appointments in schema
+          createdAt: apt.appointmentDate.toISOString(),
+          updatedAt: apt.appointmentDate.toISOString(),
+        };
+      });
+
+      // Calculate pagination
+      const totalPages = Math.ceil(totalAppointments / limit);
+      const hasNext = page < totalPages;
+      const hasPrev = page > 1;
+
+      res.status(200).json({
+        appointments: mappedAppts,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: totalAppointments,
+          hasNext,
+          hasPrev,
+        },
+      });
+    } catch (error) {
+      console.error("Error in getUserAppointments:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to get user appointments",
+      });
+    }
+  },
+
+  // GET /users/:userId/donations - Public route for specific user donations
+  getDonationHistoryByUserId: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: "User ID is required",
+          message: "Please provide a valid user ID",
+        });
+        return;
+      }
+
+      const skip = (page - 1) * limit;
+      
+      // Build where clause for filtering
+      const where = { userId };
+
+      // Get user and donation data
+      const [user, totalDonations, bloodDonations, campaignParticipations] = await Promise.all([
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: {
+            totalDonations: true,
+            totalPoints: true,
+            donationBadge: true,
+          },
+        }),
+        prisma.bloodDonation.count({ where }),
+        prisma.bloodDonation.findMany({
+          where,
+          orderBy: { endTime: "desc" },
+          skip,
+          take: limit,
+          include: {
+            bloodDonationForm: {
+              include: {
+                appointment: {
+                  include: {
+                    medicalEstablishment: {
+                      select: {
+                        name: true,
+                        address: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        }),
+        prisma.campaignParticipation.findMany({
+          where: {
+            userId,
+            donationCompleted: true,
+          },
+          include: {
+            campaign: {
+              select: {
+                id: true,
+                title: true,
+                location: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: "User not found",
+          message: "User not found",
+        });
+        return;
+      }
+
+      // Map donations to response format
+      const donations = bloodDonations.map((donation) => {
+        const appointment = donation.bloodDonationForm?.appointment;
+        const medicalEstablishment = appointment?.medicalEstablishment;
+        
+        // Find associated campaign participation
+        const campaignParticipation = campaignParticipations.find(
+          (p) => p.scannedAt && 
+          Math.abs(new Date(p.scannedAt).getTime() - new Date(donation.endTime).getTime()) < 24 * 60 * 60 * 1000 // Within 24 hours
+        );
+
+        return {
+          id: donation.id,
+          date: donation.endTime.toISOString(),
+          location: medicalEstablishment?.name || campaignParticipation?.campaign?.location || "Unknown Location",
+          type: "blood" as const, // Default to blood for now
+          status: "completed" as const, // All existing donations are completed
+          volume: "450ml", // Standard blood donation volume
+          campaign: campaignParticipation?.campaign ? {
+            id: campaignParticipation.campaign.id,
+            title: campaignParticipation.campaign.title,
+          } : undefined,
+          medicalEstablishment: {
+            name: medicalEstablishment?.name || "Unknown Medical Facility",
+            address: medicalEstablishment?.address || "Address not available",
+          },
+          healthMetrics: {
+            // These would come from blood donation form in a complete implementation
+            hemoglobin: undefined,
+            bloodPressure: undefined,
+            weight: undefined,
+            pulse: undefined,
+          },
+          points: donation.pointsEarned,
+          notes: undefined,
+        };
+      });
+
+      // Calculate pagination
+      const totalPages = Math.ceil(totalDonations / limit);
+      const hasNext = page < totalPages;
+      const hasPrev = page > 1;
+
+      // Calculate donation stats
+      const totalVolume = totalDonations * 450; // Assuming 450ml per donation
+      const donorLevel = user.donationBadge; // Map to string
+      const currentStreak = 0; // Would need additional logic to calculate
+      const longestStreak = 0; // Would need additional logic to calculate
+
+      res.status(200).json({
+        donations,
+        stats: {
+          totalDonations: user.totalDonations,
+          totalVolume,
+          donorLevel,
+          pointsEarned: user.totalPoints,
+          currentStreak,
+          longestStreak,
+        },
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: totalDonations,
+          hasNext,
+          hasPrev,
+        },
+      });
+    } catch (error) {
+      console.error("Error in getDonationHistoryByUserId:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to get donation history",
+      });
+    }
+  },
+
+  // GET /users/:userId/appointments - Public route for specific user appointments
+  getUserAppointmentsByUserId: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      if (!userId) {
+        res.status(400).json({
+          success: false,
+          error: "User ID is required",
+          message: "Please provide a valid user ID",
+        });
+        return;
+      }
+
+      const skip = (page - 1) * limit;
+      
+      // Build where clause
+      const where = { donorId: userId };
+
+      const [totalAppointments, appointments] = await Promise.all([
+        prisma.appointment.count({ where }),
+        prisma.appointment.findMany({
+          where,
+          orderBy: { appointmentDate: "desc" },
+          skip,
+          take: limit,
+          include: {
+            medicalEstablishment: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+                email: true,
+              },
+            },
+            slot: {
+              select: {
+                startTime: true,
+                endTime: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      // Map appointments to response format
+      const mappedAppts = appointments.map((apt) => {
+        const timeString = apt.slot?.startTime || '09:00';
+
+        return {
+          id: apt.id,
+          hospital: apt.medicalEstablishment.name,
+          date: apt.appointmentDate.toISOString(),
+          time: timeString,
+          location: apt.medicalEstablishment.address,
+          confirmationId: apt.id, // Using appointment ID as confirmation ID
+          status: apt.scheduled.toLowerCase() as 'upcoming' | 'confirmed' | 'completed' | 'cancelled',
+          type: 'blood_donation' as const,
+          notes: undefined,
+          medicalEstablishment: {
+            id: apt.medicalEstablishment.id,
+            name: apt.medicalEstablishment.name,
+            address: apt.medicalEstablishment.address,
+            contactNumber: apt.medicalEstablishment.email || 'Not available',
+          },
+          campaign: undefined, // Would need to link campaigns to appointments in schema
+          createdAt: apt.appointmentDate.toISOString(),
+          updatedAt: apt.appointmentDate.toISOString(),
+        };
+      });
+
+      // Calculate pagination
+      const totalPages = Math.ceil(totalAppointments / limit);
+      const hasNext = page < totalPages;
+      const hasPrev = page > 1;
+
+      res.status(200).json({
+        appointments: mappedAppts,
+        pagination: {
+          currentPage: page,
+          totalPages,
+          totalItems: totalAppointments,
+          hasNext,
+          hasPrev,
+        },
+      });
+    } catch (error) {
+      console.error("Error in getUserAppointmentsByUserId:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to get user appointments",
       });
     }
   },

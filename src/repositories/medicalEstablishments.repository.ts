@@ -11,6 +11,15 @@ export const MedicalEstablishmentsRepository = {
     return establishments;
   },
 
+  getAllMedicalEstablishments: async () => {
+    const establishments = await prisma.medicalEstablishment.findMany({
+      orderBy: {
+        name: 'asc'
+      }
+    });
+    return establishments;
+  },
+
   // getUpcomingDates: async (establishmentId: string) => {
   //   const today = new Date();
   //   const upcomingDates = Array.from({ length: 7 }, (_, i) => {

@@ -30,6 +30,15 @@ export {
 } from './donationForm.types.js';
 
 export {
+  DonationRecord,
+  DonationStats,
+  DonationHistoryResponse,
+  DonationEligibilityResponse,
+  UserAppointment,
+  UserAppointmentsResponse
+} from './donation.types.js';
+
+export {
   AuthenticatedUser,
   AuthenticatedRequest,
   DecodedToken,
@@ -110,3 +119,9 @@ export {
 export {
   CreateBloodDonationInput
 } from './bloodDonation.types.js';
+
+export {
+  CampaignDetailResponse,
+  CampaignListItem,
+  CampaignStats
+} from './campaignDetail.types.js';

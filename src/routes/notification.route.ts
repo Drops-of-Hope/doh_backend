@@ -7,8 +7,14 @@ const router = Router();
 // GET /notifications/campaigns - Get campaign notifications with filters
 router.get('/campaigns', authenticateToken, NotificationController.getCampaignNotifications);
 
+// GET /notifications/user - Get user notifications with pagination (for mobile app)
+router.get('/user', authenticateToken, NotificationController.getUserNotifications);
+
 // PATCH /notifications/:id/read - Mark single notification as read
 router.patch('/:id/read', authenticateToken, NotificationController.markAsRead);
+
+// PUT /notifications/:notificationId/read - Alternative route for mobile app
+router.put('/:notificationId/read', authenticateToken, NotificationController.markAsRead);
 
 // PATCH /notifications/batch-read - Mark multiple notifications as read
 router.patch('/batch-read', authenticateToken, NotificationController.batchMarkAsRead);

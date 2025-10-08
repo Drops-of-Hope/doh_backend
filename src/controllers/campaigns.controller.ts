@@ -75,6 +75,7 @@ export const CampaignsController = {
               medicalEstablishment: true,
               organizer: {
                 select: {
+                  id: true,
                   name: true,
                   email: true,
                 },
@@ -110,6 +111,7 @@ export const CampaignsController = {
           imageUrl: campaign.imageUrl,
           requirements: campaign.requirements,
           createdAt: campaign.createdAt,
+          organizerId: campaign.organizerId, // Direct field from Campaign table
           medicalEstablishment: campaign.medicalEstablishment,
           organizer: campaign.organizer,
           participantsCount: campaign._count.participations,
@@ -200,7 +202,9 @@ export const CampaignsController = {
             medicalEstablishment: true,
             organizer: {
               select: {
+                id: true,
                 name: true,
+                email: true,
               },
             },
           },
@@ -219,7 +223,8 @@ export const CampaignsController = {
           expectedDonors: campaign.expectedDonors,
           actualDonors: campaign.actualDonors,
           imageUrl: campaign.imageUrl,
-          organizer: campaign.organizer.name,
+          organizerId: campaign.organizerId, // Direct field from Campaign table
+          organizer: campaign.organizer,
           medicalEstablishment: campaign.medicalEstablishment,
         }));
       }
@@ -365,7 +370,7 @@ export const CampaignsController = {
         where.isActive = status === 'active';
       }
 
-      const [campaigns, totalCount] = await Promise.all([
+      const [campaignResults, totalCount] = await Promise.all([
         prisma.campaign.findMany({
           where,
           skip,
@@ -374,6 +379,7 @@ export const CampaignsController = {
           include: {
             medicalEstablishment: {
               select: {
+                id: true,
                 name: true,
                 address: true,
               },
@@ -387,6 +393,35 @@ export const CampaignsController = {
         }),
         prisma.campaign.count({ where }),
       ]);
+
+      // Transform the response to ensure proper serialization
+      const campaigns = campaignResults.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        type: campaign.type,
+        location: campaign.location,
+        description: campaign.description,
+        motivation: campaign.motivation,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        expectedDonors: campaign.expectedDonors,
+        actualDonors: campaign.actualDonors,
+        contactPersonName: campaign.contactPersonName,
+        contactPersonPhone: campaign.contactPersonPhone,
+        isApproved: campaign.isApproved,
+        isActive: campaign.isActive,
+        imageUrl: campaign.imageUrl,
+        requirements: campaign.requirements,
+        createdAt: campaign.createdAt,
+        updatedAt: campaign.updatedAt,
+        organizerId: campaign.organizerId, // This is the direct field value from Campaign table
+        medicalEstablishment: {
+          id: campaign.medicalEstablishment.id,
+          name: campaign.medicalEstablishment.name,
+          address: campaign.medicalEstablishment.address,
+        },
+        participantsCount: campaign._count.participations,
+      }));
 
       res.status(200).json({
         success: true,
@@ -1116,29 +1151,39 @@ export const CampaignsController = {
     try {
       const { id } = req.params;
 
-      const campaign = await prisma.campaign.findUnique({
-        where: { id },
-        include: {
-          medicalEstablishment: {
-            select: {
-              name: true,
-              address: true,
+      const [campaign, participationStats] = await Promise.all([
+        prisma.campaign.findUnique({
+          where: { id },
+          include: {
+            medicalEstablishment: {
+              select: {
+                id: true,
+                name: true,
+                address: true,
+                email: true,
+              },
+            },
+            organizer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+            _count: {
+              select: {
+                participations: true,
+              },
             },
           },
-          organizer: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
+        }),
+        prisma.campaignParticipation.aggregate({
+          where: { campaignId: id },
           _count: {
-            select: {
-              participations: true,
-            },
+            id: true,
           },
-        },
-      });
+        }),
+      ]);
 
       if (!campaign) {
         res.status(404).json({
@@ -1149,13 +1194,71 @@ export const CampaignsController = {
         return;
       }
 
-      res.status(200).json({
-        success: true,
-        campaign: {
-          ...campaign,
-          participantsCount: campaign._count.participations,
+      // Get additional stats
+      const [attendanceCount, donationCount] = await Promise.all([
+        prisma.campaignParticipation.count({
+          where: { 
+            campaignId: id,
+            attendanceMarked: true,
+          },
+        }),
+        prisma.campaignParticipation.count({
+          where: { 
+            campaignId: id,
+            donationCompleted: true,
+          },
+        }),
+      ]);
+
+      // Calculate goal progress
+      const goalProgress = campaign.expectedDonors > 0 
+        ? Math.round((donationCount / campaign.expectedDonors) * 100)
+        : 0;
+
+      // Build response according to requirements
+      const campaignDetails = {
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        location: campaign.location,
+        startDate: campaign.startTime.toISOString(),
+        endDate: campaign.endTime.toISOString(),
+        goalBloodUnits: campaign.expectedDonors, // Using expectedDonors as goal
+        currentBloodUnits: donationCount,
+        status: campaign.isActive ? 'active' : 'completed',
+        organizer: {
+          id: campaign.organizer.id,
+          name: campaign.organizer.name,
+          email: campaign.organizer.email,
+          phone: campaign.contactPersonPhone,
+          organization: "Department of Health", // Default organization
         },
-      });
+        medicalEstablishment: {
+          id: campaign.medicalEstablishment.id,
+          name: campaign.medicalEstablishment.name,
+          address: campaign.medicalEstablishment.address,
+          contactNumber: campaign.contactPersonPhone,
+        },
+        requirements: {
+          bloodTypes: ["A+", "B+", "O+", "AB+", "A-", "B-", "O-", "AB-"], // Default to all types
+          ageRange: {
+            min: 18,
+            max: 65,
+          },
+          minimumWeight: 50,
+        },
+        stats: {
+          totalDonors: participationStats._count.id,
+          totalAttendance: attendanceCount,
+          screenedPassed: attendanceCount, // Assuming all attendees passed screening
+          currentDonations: donationCount,
+          goalProgress,
+        },
+        createdAt: campaign.createdAt.toISOString(),
+        updatedAt: campaign.updatedAt.toISOString(),
+      };
+
+      res.status(200).json(campaignDetails);
     } catch (error) {
       console.error("Get campaign details error:", error);
       res.status(500).json({

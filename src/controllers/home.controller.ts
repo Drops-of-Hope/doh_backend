@@ -245,4 +245,184 @@ export const HomeController = {
       });
     }
   },
+
+  // GET /home/data - Mobile app home screen data
+  getHomeData: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+          message: "Please login to access home data",
+        });
+        return;
+      }
+
+      // Get user stats
+      const userStats = await prisma.userHomeStats.findUnique({
+        where: { userId },
+      });
+
+      // Get upcoming appointments
+      const upcomingAppointments = await prisma.appointment.findMany({
+        where: {
+          donorId: userId,
+          appointmentDate: {
+            gte: new Date(),
+          },
+        },
+        include: {
+          medicalEstablishment: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              region: true,
+            },
+          },
+          slot: {
+            select: {
+              startTime: true,
+              endTime: true,
+            },
+          },
+        },
+        orderBy: {
+          appointmentDate: "asc",
+        },
+        take: 5,
+      });
+
+      // Get featured campaigns (upcoming)
+      const featuredCampaigns = await prisma.campaign.findMany({
+        where: {
+          isActive: true,
+          startTime: {
+            gte: new Date(),
+          },
+        },
+        include: {
+          medicalEstablishment: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
+          organizer: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          _count: {
+            select: {
+              participations: true,
+            },
+          },
+        },
+        orderBy: { startTime: "asc" },
+        take: 10,
+      });
+
+      // Get active emergencies
+      const emergencies = await prisma.emergencyRequest.findMany({
+        where: {
+          status: "ACTIVE",
+          expiresAt: {
+            gte: new Date(),
+          },
+        },
+        include: {
+          hospital: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              district: true,
+            },
+          },
+        },
+        orderBy: { urgencyLevel: "asc" },
+        take: 5,
+      });
+
+      res.status(200).json({
+        data: {
+          userStats: userStats || {
+            id: userId,
+            userId,
+            totalDonations: 0,
+            totalPoints: 0,
+            donationStreak: 0,
+            lastDonationDate: null,
+            eligibleToDonate: true,
+            nextEligibleDate: null,
+            nextAppointmentDate: upcomingAppointments[0]?.appointmentDate || null,
+            nextAppointmentId: upcomingAppointments[0]?.id || null,
+            lastUpdated: new Date().toISOString(),
+          },
+          upcomingAppointments: upcomingAppointments.map(apt => ({
+            id: apt.id,
+            donorId: apt.donorId,
+            appointmentDateTime: apt.appointmentDate.toISOString(),
+            scheduled: apt.scheduled,
+            location: apt.medicalEstablishment.address,
+            medicalEstablishment: {
+              id: apt.medicalEstablishment.id,
+              name: apt.medicalEstablishment.name,
+              address: apt.medicalEstablishment.address,
+              district: apt.medicalEstablishment.region,
+            },
+            slot: {
+              startTime: apt.slot?.startTime || "09:00",
+              endTime: apt.slot?.endTime || "17:00",
+            },
+          })),
+          featuredCampaigns: featuredCampaigns.map(campaign => ({
+            id: campaign.id,
+            title: campaign.title,
+            type: campaign.type,
+            location: campaign.location,
+            description: campaign.description,
+            startTime: campaign.startTime.toISOString(),
+            endTime: campaign.endTime.toISOString(),
+            expectedDonors: campaign.expectedDonors,
+            actualDonors: campaign.actualDonors,
+            imageUrl: campaign.imageUrl,
+            isActive: campaign.isActive,
+            organizer: {
+              id: campaign.organizer.id,
+              name: campaign.organizer.name,
+            },
+            medicalEstablishment: campaign.medicalEstablishment,
+            participantCount: campaign._count.participations,
+          })),
+          emergencies: emergencies.map(emergency => ({
+            id: emergency.id,
+            title: emergency.title,
+            description: emergency.description,
+            bloodTypesNeeded: emergency.bloodTypesNeeded,
+            quantityNeeded: emergency.quantityNeeded,
+            urgencyLevel: emergency.urgencyLevel,
+            status: emergency.status,
+            expiresAt: emergency.expiresAt.toISOString(),
+            contactNumber: emergency.contactNumber,
+            specialInstructions: emergency.specialInstructions,
+            hospital: emergency.hospital,
+            createdAt: emergency.createdAt.toISOString(),
+          })),
+        },
+      });
+    } catch (error) {
+      console.error("Home data error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        message: "Failed to fetch home data",
+      });
+    }
+  },
 };

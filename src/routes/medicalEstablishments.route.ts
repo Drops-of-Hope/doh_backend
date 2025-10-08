@@ -1,6 +1,7 @@
 //medicalEstablishments.route.ts
 import { Router } from "express";
 import { MedicalEstablishmentsController } from "../controllers/medicalEstablishments.controller.js";
+import { authenticateToken } from "../middlewares/authenticateUser.js";
 
 const router = Router();
 
@@ -10,6 +11,7 @@ router.get("/", MedicalEstablishmentsController.getMedicalEstablishments); //Ret
 
 router.get(
   "/appointments/:establishmentId/slots",
+  authenticateToken,
   MedicalEstablishmentsController.getSlots
 ); //Get available time slots for a specific date and establishment.
 
