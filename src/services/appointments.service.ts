@@ -66,4 +66,16 @@ export const AppointmentsService = {
     nextEligible.setDate(nextEligible.getDate() + 56); // 8 weeks
     return nextEligible;
   },
+  updateAppointmentStatus: async (appointmentId: string, status: string, confirmedById?: string) => {
+    // Map incoming status strings from frontend to Prisma enum values
+    const statusMap: Record<string, string> = {
+      confirmed: "COMPLETED",
+    };
+
+    const mapped = statusMap[status];
+    if (!mapped) throw new Error("Unsupported status");
+
+    // Delegate to repository to perform transactional update and audit log
+    return await AppointmentsRepository.updateAppointmentStatus(appointmentId, mapped, confirmedById);
+  },
 };
