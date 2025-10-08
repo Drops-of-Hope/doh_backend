@@ -5,9 +5,7 @@ import { authenticateToken } from "../middlewares/authenticateUser.js";
 
 const router = Router();
 
-console.log('medical establishment route');
-
-router.get("/", authenticateToken, MedicalEstablishmentsController.getMedicalEstablishments); //Retrieve medical establishments by district.
+router.get("/", MedicalEstablishmentsController.getMedicalEstablishments); //Retrieve medical establishments by district.
 
 //router.get('/appointments/:establishmentId/dates', MedicalEstablishmentsController.getDates); //Fetch the next 7 upcoming dates for a medical establishment.
 
@@ -16,5 +14,9 @@ router.get(
   authenticateToken,
   MedicalEstablishmentsController.getSlots
 ); //Get available time slots for a specific date and establishment.
+
+
+//route to get the inventory ID of medical establishment
+router.get("/inventory/:establishmentId", MedicalEstablishmentsController.getInventory);
 
 export default router;

@@ -20,4 +20,19 @@ export const MedicalEstablishmentsService = {
 
     return MedicalEstablishmentsRepository.getAvailableSlots(establishmentId);
   },
+
+  getInventory: async (establishmentId: string) => {
+    // Basic validation (optional here since controller already validates)
+    if (!establishmentId) {
+      throw new Error("Establishment ID is required");
+    }
+
+    // Delegate to repository layer
+    const inventory =
+      await MedicalEstablishmentsRepository.getInventoryByEstablishmentId(
+        establishmentId
+      );
+
+    return inventory;
+  },
 };
