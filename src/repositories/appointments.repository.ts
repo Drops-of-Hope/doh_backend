@@ -1,5 +1,6 @@
 import { prisma } from "../config/db.js";
 import { CreateAppointmentsInput } from "../types/index.js";
+import { AppointmentStatus } from '@prisma/client';
 
 export const AppointmentsRepository = {
   // Create appointment for a medical establishment
@@ -132,6 +133,28 @@ export const AppointmentsRepository = {
     return await prisma.user.update({
       where: { id: donorId },
       data: { nextEligible: nextEligibleDate },
+    });
+  },
+  // Update appointment status atomically with optional audit log entry
+  updateAppointmentStatus: async (appointmentId: string, newStatus: string) => {
+    return await prisma.$transaction(async (tx) => {
+      const appointment = await tx.appointment.findUnique({ where: { id: appointmentId } });
+      if (!appointment) return null;
+
+      // Idempotent: if status already matches, return the appointment
+      if (appointment.scheduled === newStatus) {
+        return await tx.appointment.findUnique({ where: { id: appointmentId }, include: { donor: true, slot: true, medicalEstablishment: true } });
+      }
+
+      // Update appointment status
+      const updated = await tx.appointment.update({
+        where: { id: appointmentId },
+        data: { scheduled: newStatus as AppointmentStatus },
+        include: { donor: true, slot: true, medicalEstablishment: true },
+      });
+
+      // Only update scheduled column for this flow; do not create audit logs here
+      return updated;
     });
   },
 };
