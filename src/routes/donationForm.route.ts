@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { DonationFormController } from "../controllers/donationForm.controller";
+import { DonationFormController } from "../controllers/donationForm.controller.js";
 
 const router = Router();
 

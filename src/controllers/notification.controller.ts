@@ -298,4 +298,73 @@ export const NotificationController = {
       });
     }
   },
+
+  // GET /notifications/user - Get user notifications with pagination (for mobile app)
+  getUserNotifications: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const userId = req.user?.id;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      if (!userId) {
+        res.status(401).json({
+          success: false,
+          error: 'Unauthorized',
+          message: 'User not authenticated',
+        });
+        return;
+      }
+
+      const skip = (page - 1) * limit;
+
+      // Import Prisma client at the top of the file if not already imported
+      const { PrismaClient } = await import('@prisma/client');
+      const prisma = new PrismaClient();
+
+      const [totalNotifications, notifications] = await Promise.all([
+        prisma.notification.count({ where: { userId } }),
+        prisma.notification.findMany({
+          where: { userId },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+      ]);
+
+      const totalPages = Math.ceil(totalNotifications / limit);
+      const hasNext = page < totalPages;
+      const hasPrev = page > 1;
+
+      res.status(200).json({
+        data: {
+          notifications: notifications.map(notification => ({
+            id: notification.id,
+            userId: notification.userId,
+            type: notification.type,
+            title: notification.title,
+            message: notification.message,
+            metadata: notification.metadata,
+            isRead: notification.isRead,
+            createdAt: notification.createdAt,
+          })),
+          pagination: {
+            currentPage: page,
+            totalPages,
+            totalItems: totalNotifications,
+            hasNext,
+            hasPrev,
+            limit,
+            offset: skip,
+          },
+        },
+      });
+    } catch (error) {
+      console.error('Get user notifications error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Internal server error',
+        message: 'Failed to fetch user notifications',
+      });
+    }
+  },
 };
