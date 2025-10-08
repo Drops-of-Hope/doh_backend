@@ -81,4 +81,30 @@ export const BloodTestController = {
         .json({ message: "Failed to update blood type", error: error.message });
     }
   },
+
+  // Get the BloodTest record for a specific blood unit
+  getTestByBloodId: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { bloodId } = req.params;
+
+      if (!bloodId) {
+        res.status(400).json({ message: "Blood unit ID is required." });
+        return;
+      }
+
+      const test = await BloodTestService.findTestByBloodId(bloodId);
+
+      if (!test) {
+        res.status(404).json({ message: "Blood test not found." });
+        return;
+      }
+
+      res.status(200).json(test);
+    } catch (error: any) {
+      console.error("Error fetching blood test:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to fetch blood test", error: error.message });
+    }
+  },
 };

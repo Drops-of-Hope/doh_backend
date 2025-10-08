@@ -119,4 +119,16 @@ export const BloodTestRepository = {
 
     return allFieldsFilled;
   },
+
+  // Get the BloodTest record for a specific blood unit
+  async findTestByBloodId(bloodId: string) {
+    return prisma.bloodTest.findFirst({
+      where: { bloodId },
+      include: {
+        blood: true,
+        appointment: true,
+        inventory: true,
+      },
+    });
+  },
 };

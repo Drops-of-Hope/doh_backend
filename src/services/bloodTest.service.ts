@@ -42,4 +42,15 @@ export const BloodTestService = {
       throw new Error("Failed to update blood type");
     }
   },
+
+  // Retrieve the BloodTest record by bloodId
+  async findTestByBloodId(bloodId: string) {
+    try {
+      const test = await BloodTestRepository.findTestByBloodId(bloodId);
+      return test;
+    } catch (error) {
+      console.error("Error in BloodTestService.findTestByBloodId:", error);
+      throw new Error("Failed to fetch blood test");
+    }
+  },
 };
