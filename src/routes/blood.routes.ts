@@ -6,4 +6,7 @@ const router = Router();
 // POST /api/blood/check-availability
 router.post("/check-availability", BloodController.checkAvailability);
 
+// POST /api/blood/list-units
+router.post("/list-units", BloodController.listAvailableUnits);
+
 export default router;

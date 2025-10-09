@@ -52,6 +52,45 @@ export const BloodController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+  listAvailableUnits: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { inventory_id, blood_group } = req.body ?? {};
+
+      if (!inventory_id || typeof inventory_id !== "string") {
+        res.status(400).json({ message: "inventory_id is required and must be a string" });
+        return;
+      }
+      if (!blood_group || typeof blood_group !== "string") {
+        res.status(400).json({ message: "blood_group is required and must be a string" });
+        return;
+      }
+
+      const { items, totalAvailableUnits, count } = await BloodService.listAvailableUnits(
+        inventory_id,
+        blood_group
+      );
+
+      if (count === 0) {
+        res.status(200).json({
+          message: "No safe and available blood units found for this inventory and blood group.",
+          available_units: 0,
+          count: 0,
+          data: [],
+        });
+        return;
+      }
+
+      res.status(200).json({
+        message: "Success.",
+        available_units: totalAvailableUnits,
+        count,
+        data: items,
+      });
+    } catch (error) {
+      console.error("Error listing blood units:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
 };
 
 export default BloodController;
