@@ -1,4 +1,4 @@
-import { BloodGroup, TestStatus } from "@prisma/client";
+import { BloodGroup, Prisma, TestStatus } from "@prisma/client";
 import { prisma } from "../config/db.js";
 
 // Helper to parse common blood group strings (e.g., A+, O-, AB_POSITIVE) to Prisma BloodGroup enum
@@ -31,12 +31,12 @@ export const BloodService = {
   checkAvailability: async (
     inventoryId: string,
     bloodGroup: string,
-    numberOfUnitsRequested: number
+    _numberOfUnitsRequested: number
   ): Promise<{ totalAvailableUnits: number; matchingCount: number }> => {
     const bgEnum = toBloodGroupEnum(bloodGroup);
 
     // Build where clause; if blood group is parsable, filter via related blood tests' ABOTest
-    const where: any = {
+    const where = {
       inventoryId,
       status: TestStatus.SAFE,
       consumed: false,
@@ -49,7 +49,7 @@ export const BloodService = {
             },
           }
         : {}),
-    };
+    } satisfies Prisma.BloodWhereInput;
 
     const records = await prisma.blood.findMany({ where });
 

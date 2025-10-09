@@ -66,7 +66,7 @@ export const AppointmentsService = {
     nextEligible.setDate(nextEligible.getDate() + 56); // 8 weeks
     return nextEligible;
   },
-  updateAppointmentStatus: async (appointmentId: string, status: string, confirmedById?: string) => {
+  updateAppointmentStatus: async (appointmentId: string, status: string, _confirmedById?: string) => {
     // Map incoming status strings from frontend to Prisma enum values
     const statusMap: Record<string, string> = {
       confirmed: "COMPLETED",
