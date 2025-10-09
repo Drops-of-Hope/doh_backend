@@ -76,6 +76,6 @@ export const AppointmentsService = {
     if (!mapped) throw new Error("Unsupported status");
 
     // Delegate to repository to perform transactional update and audit log
-    return await AppointmentsRepository.updateAppointmentStatus(appointmentId, mapped, confirmedById);
+    return await AppointmentsRepository.updateAppointmentStatus(appointmentId, mapped);
   },
 };
