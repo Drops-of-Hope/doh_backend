@@ -91,6 +91,40 @@ export const BloodController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+  listExpiredUnits: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { inventory_id } = req.body ?? {};
+
+      if (!inventory_id || typeof inventory_id !== "string") {
+        res.status(400).json({ message: "inventory_id is required and must be a string" });
+        return;
+      }
+
+      const { items, totalAvailableUnits, count } = await BloodService.listExpiredUnits(
+        inventory_id
+      );
+
+      if (count === 0) {
+        res.status(200).json({
+          message: "No expired safe and available blood units found for this inventory.",
+          available_units: 0,
+          count: 0,
+          data: [],
+        });
+        return;
+      }
+
+      res.status(200).json({
+        message: "Success.",
+        available_units: totalAvailableUnits,
+        count,
+        data: items,
+      });
+    } catch (error) {
+      console.error("Error listing expired blood units:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
 };
 
 export default BloodController;
