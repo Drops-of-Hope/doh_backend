@@ -12,4 +12,7 @@ router.post("/list-units", BloodController.listAvailableUnits);
 // POST /api/blood/expired-units
 router.post("/expired-units", BloodController.listExpiredUnits);
 
+// POST /api/blood/nearing-expiry
+router.post("/nearing-expiry", BloodController.listNearingExpiryUnits);
+
 export default router;

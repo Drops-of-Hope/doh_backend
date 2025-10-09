@@ -123,6 +123,38 @@ export const BloodService = {
 
     return { items: records, totalAvailableUnits, count: records.length };
   },
+  // List units expiring in 5 or fewer days from today (but not expired today)
+  listNearingExpiryUnits: async (
+    inventoryId: string
+  ): Promise<{ items: unknown[]; totalAvailableUnits: number; count: number }> => {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfTomorrow = new Date(startOfToday);
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    const endWindow = new Date(startOfToday);
+    endWindow.setDate(endWindow.getDate() + 5);
+
+    const where = {
+      inventoryId,
+      status: TestStatus.SAFE,
+      consumed: false,
+      expiryDate: {
+        gt: startOfToday, // not expired today
+        lte: endWindow,   // within 5 days
+      },
+    } satisfies Prisma.BloodWhereInput;
+
+    const records = await prisma.blood.findMany({ where });
+
+    const totalAvailableUnits = records.reduce((sum, r) => {
+      const maybeUnits = (r as unknown as { available_units?: number }).available_units;
+      if (maybeUnits === undefined || maybeUnits === null) return sum + 1;
+      const units = Number(maybeUnits);
+      return sum + (Number.isFinite(units) ? units : 0);
+    }, 0);
+
+    return { items: records, totalAvailableUnits, count: records.length };
+  },
 };
 
 export default BloodService;
