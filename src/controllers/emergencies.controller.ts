@@ -73,6 +73,73 @@ export const EmergenciesController = {
     }
   },
 
+  // GET /emergencies/by-requester/:requestedById
+  getEmergenciesByRequester: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { requestedById } = req.params;
+
+      if (!requestedById) {
+        res.status(400).json({ message: "requestedById is required" });
+        return;
+      }
+
+      const emergencies = await prisma.emergencyRequest.findMany({
+        where: { requestedById },
+        include: {
+          hospital: {
+            include: {
+              medicalEstablishment: true,
+            },
+          },
+          responses: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      res.status(200).json({
+        data: emergencies,
+        count: emergencies.length,
+      });
+    } catch (error) {
+      console.error("Get emergencies by requester error:", error);
+      res.status(500).json({ message: "Failed to fetch emergencies by requester" });
+    }
+  },
+
+  // GET /emergencies/by-hospital/:hospitalId
+  getEmergenciesByHospital: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { hospitalId } = req.params;
+
+      if (!hospitalId) {
+        res.status(400).json({ message: "hospitalId is required" });
+        return;
+      }
+
+      const emergencies = await prisma.emergencyRequest.findMany({
+        where: { hospitalId },
+        include: {
+          hospital: {
+            include: {
+              medicalEstablishment: true,
+            },
+          },
+          responses: true,
+          requestedBy: true,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      res.status(200).json({
+        data: emergencies,
+        count: emergencies.length,
+      });
+    } catch (error) {
+      console.error("Get emergencies by hospital error:", error);
+      res.status(500).json({ message: "Failed to fetch emergencies by hospital" });
+    }
+  },
+
   // POST /emergencies/:id/respond
   respondToEmergency: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {

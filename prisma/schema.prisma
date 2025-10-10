@@ -33,13 +33,13 @@ model User {
   emergencyRequests      EmergencyRequest[]
   EquipmentAssignment    EquipmentAssignment[]
   feedbacks              Feedback[]
+  healthVitals           HealthVital[]
   MaintenanceLog         MaintenanceLog[]
   notifications          Notification[]
   qrScans                QRScan[]
   StaffAssignment        StaffAssignment[]
   userDetails            UserDetail?
   homeStats              UserHomeStats?
-  healthVitals HealthVital[]
 }
 
 model UserDetail {
@@ -213,16 +213,15 @@ model BloodDonationForm {
 }
 
 model HealthVital {
-  id             String      @id @default(uuid())
-  userId         String
-  appointmentId  String?     @unique
-  weight         Float
-  bp             Float
-  cvsPulse       Float
-  dateTime       DateTime    @default(now())
-
-  user           User        @relation(fields: [userId], references: [id])
-  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
+  id            String       @id @default(uuid())
+  userId        String
+  appointmentId String?      @unique
+  weight        Float
+  bp            Float
+  cvsPulse      Float
+  dateTime      DateTime     @default(now())
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  user          User         @relation(fields: [userId], references: [id])
 }
 
 model BloodDonation {
@@ -301,7 +300,7 @@ model Appointment {
   slot                   AppointmentSlot      @relation(fields: [slotId], references: [id])
   bloodDonationForms     BloodDonationForm[]
   bloodTests             BloodTest[]
-  healthVital  HealthVital?
+  healthVital            HealthVital?
 }
 
 model Inventory {
@@ -319,12 +318,12 @@ model BloodTest {
   testDateTime  DateTime
   status        TestStatus
   ABOTest       BloodGroup
-  hivTest       Boolean
+  hivTest       Boolean?
   hemoglobin    Float
-  syphilis      Boolean
-  hepatitisB    Boolean
-  hepatitisC    Boolean
-  malaria       Boolean
+  syphilis      Boolean?
+  hepatitisB    Boolean?
+  hepatitisC    Boolean?
+  malaria       Boolean?
   resultPending Boolean
   appointmentId String?
   inventoryId   String?

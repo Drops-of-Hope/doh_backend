@@ -7,6 +7,12 @@ const router = Router();
 // GET /emergencies
 router.get("/", EmergenciesController.getEmergencies);
 
+// GET /emergencies/by-requester/:requestedById
+router.get("/by-requester/:requestedById", EmergenciesController.getEmergenciesByRequester);
+
+// GET /emergencies/by-hospital/:hospitalId
+router.get("/by-hospital/:hospitalId", EmergenciesController.getEmergenciesByHospital);
+
 // POST /emergencies/:id/respond
 router.post("/:id/respond", authenticateToken, EmergenciesController.respondToEmergency);
 
