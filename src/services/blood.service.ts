@@ -157,6 +157,27 @@ export const BloodService = {
 
     return { items: records, totalAvailableUnits, count: records.length };
   },
+  // List all SAFE and not consumed units for an inventory (no blood group filter)
+  listUnitsByInventory: async (
+    inventoryId: string
+  ): Promise<{ items: unknown[]; totalAvailableUnits: number; count: number }> => {
+    const where = {
+      inventoryId,
+      status: TestStatus.SAFE,
+      consumed: false,
+    } satisfies Prisma.BloodWhereInput;
+
+    const records = await prisma.blood.findMany({ where });
+
+    const totalAvailableUnits = records.reduce((sum, r) => {
+      const maybeUnits = (r as unknown as { available_units?: number }).available_units;
+      if (maybeUnits === undefined || maybeUnits === null) return sum + 1;
+      const units = Number(maybeUnits);
+      return sum + (Number.isFinite(units) ? units : 0);
+    }, 0);
+
+    return { items: records, totalAvailableUnits, count: records.length };
+  },
 };
 
 export default BloodService;
