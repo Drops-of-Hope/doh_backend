@@ -53,4 +53,19 @@ export const BloodTestService = {
       throw new Error("Failed to fetch blood test");
     }
   },
+
+  // Update the HIV test result for a blood unit. Creates a BloodTest record if needed.
+  async updateHivTest(bloodId: string, hivTest: boolean) {
+    try {
+      if (!bloodId || typeof hivTest !== "boolean") {
+        throw new Error("Missing bloodId or invalid hivTest");
+      }
+
+      const updated = await BloodTestRepository.upsertHivTest(bloodId, hivTest);
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateHivTest:", error);
+      throw new Error("Failed to update HIV test");
+    }
+  },
 };

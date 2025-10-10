@@ -107,4 +107,35 @@ export const BloodTestController = {
         .json({ message: "Failed to fetch blood test", error: error.message });
     }
   },
+
+  // Update the HIV test result for a blood unit
+  updateHivTest: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { bloodId } = req.params;
+      const { hivTest } = req.body;
+
+      if (!bloodId) {
+        res.status(400).json({ message: "Blood unit ID is required." });
+        return;
+      }
+
+      if (typeof hivTest !== "boolean") {
+        res
+          .status(400)
+          .json({ message: "hivTest (boolean) is required in body." });
+        return;
+      }
+
+      const updated = await BloodTestService.updateHivTest(bloodId, hivTest);
+
+      res
+        .status(200)
+        .json({ message: "HIV test updated successfully", data: updated });
+    } catch (error: any) {
+      console.error("Error updating HIV test:", error);
+      res
+        .status(500)
+        .json({ message: "Failed to update HIV test", error: error.message });
+    }
+  },
 };

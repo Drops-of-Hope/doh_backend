@@ -64,7 +64,7 @@ export const BloodTestRepository = {
           testDateTime: new Date(),
           status: "PENDING",
           ABOTest: aboTest as any,
-          hivTest: false,
+          hivTest: null,
           hemoglobin: 0,
           syphilis: false,
           hepatitisB: false,
@@ -130,5 +130,44 @@ export const BloodTestRepository = {
         inventory: true,
       },
     });
+  },
+
+  // Update or create a BloodTest record's hivTest field for a given blood unit
+  async upsertHivTest(bloodId: string, hivTest: boolean) {
+    const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
+
+    let result;
+
+    if (existing) {
+      result = await prisma.bloodTest.update({
+        where: { id: existing.id },
+        data: {
+          hivTest,
+          testDateTime: new Date(),
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    } else {
+      // ABOTest is non-nullable in the Prisma schema, provide a safe default
+      result = await prisma.bloodTest.create({
+        data: {
+          bloodId,
+          testDateTime: new Date(),
+          status: "PENDING",
+          ABOTest: "O_POSITIVE" as any,
+          hivTest,
+          hemoglobin: 0,
+          syphilis: false,
+          hepatitisB: false,
+          hepatitisC: false,
+          malaria: false,
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    }
+
+    return result;
   },
 };
