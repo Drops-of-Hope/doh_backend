@@ -86,4 +86,33 @@ export const BloodTestService = {
       throw new Error("Failed to update Syphilis test");
     }
   },
+
+  // Update Hepatitis B and/or Hepatitis C test results for a blood unit
+  async updateHepatitisTest(
+    bloodId: string,
+    data: { hepatitisB?: boolean; hepatitisC?: boolean }
+  ) {
+    try {
+      if (!bloodId) {
+        throw new Error("Missing bloodId");
+      }
+
+      const { hepatitisB, hepatitisC } = data;
+
+      if (hepatitisB === undefined && hepatitisC === undefined) {
+        throw new Error("At least one of hepatitisB or hepatitisC is required");
+      }
+
+      const updated = await BloodTestRepository.upsertHepatitisTest(
+        bloodId,
+        hepatitisB,
+        hepatitisC
+      );
+
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateHepatitisTest:", error);
+      throw new Error("Failed to update Hepatitis tests");
+    }
+  },
 };

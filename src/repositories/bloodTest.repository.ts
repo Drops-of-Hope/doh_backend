@@ -160,8 +160,8 @@ export const BloodTestRepository = {
           hivTest,
           hemoglobin: 0,
           syphilis: null,
-          hepatitisB: false,
-          hepatitisC: false,
+          hepatitisB: null,
+          hepatitisC: null,
           malaria: false,
           resultPending: true,
         },
@@ -199,8 +199,8 @@ export const BloodTestRepository = {
           hivTest: null,
           hemoglobin: 0,
           syphilis,
-          hepatitisB: false,
-          hepatitisC: false,
+          hepatitisB: null,
+          hepatitisC: null,
           malaria: false,
           resultPending: true,
         },
@@ -208,6 +208,52 @@ export const BloodTestRepository = {
       });
     }
 
+    return result;
+  },
+
+  // Update or create a BloodTest record's hepatitisB and/or hepatitisC fields for a given blood unit
+  async upsertHepatitisTest(
+    bloodId: string,
+    hepatitisB?: boolean,
+    hepatitisC?: boolean
+  ) {
+    const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
+
+    let data: any = {
+      testDateTime: new Date(),
+      resultPending: true,
+    };
+
+    if (hepatitisB !== undefined) data.hepatitisB = hepatitisB;
+    if (hepatitisC !== undefined) data.hepatitisC = hepatitisC;
+
+    let result;
+
+    if (existing) {
+      result = await prisma.bloodTest.update({
+        where: { id: existing.id },
+        data,
+        include: { blood: true },
+      });
+    } else {
+      // Provide safe defaults for non-nullable fields when creating a new record
+      result = await prisma.bloodTest.create({
+        data: {
+          bloodId,
+          testDateTime: new Date(),
+          status: "PENDING",
+          ABOTest: "O_POSITIVE" as BloodGroup,
+          hivTest: null,
+          hemoglobin: 0,
+          syphilis: null,
+          hepatitisB: hepatitisB ?? false,
+          hepatitisC: hepatitisC ?? false,
+          malaria: false,
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    }
     return result;
   },
 };

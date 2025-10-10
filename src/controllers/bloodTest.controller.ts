@@ -178,4 +178,59 @@ export const BloodTestController = {
         .json({ message: "Failed to update Syphilis test", error: errMsg });
     }
   },
+
+  // Update Hepatitis B and/or Hepatitis C test results for a blood unit
+  updateHepatitisTest: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { bloodId } = req.params;
+      const { hepatitisB, hepatitisC } = req.body;
+
+      if (!bloodId) {
+        res.status(400).json({ message: "Blood unit ID is required." });
+        return;
+      }
+
+      if (hepatitisB === undefined && hepatitisC === undefined) {
+        res
+          .status(400)
+          .json({
+            message:
+              "At least one of hepatitisB or hepatitisC (boolean) is required in body.",
+          });
+        return;
+      }
+
+      if (hepatitisB !== undefined && typeof hepatitisB !== "boolean") {
+        res
+          .status(400)
+          .json({ message: "hepatitisB must be a boolean if provided." });
+        return;
+      }
+
+      if (hepatitisC !== undefined && typeof hepatitisC !== "boolean") {
+        res
+          .status(400)
+          .json({ message: "hepatitisC must be a boolean if provided." });
+        return;
+      }
+
+      const updated = await BloodTestService.updateHepatitisTest(bloodId, {
+        hepatitisB,
+        hepatitisC,
+      });
+
+      res
+        .status(200)
+        .json({
+          message: "Hepatitis tests updated successfully",
+          data: updated,
+        });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error updating Hepatitis tests:", errMsg);
+      res
+        .status(500)
+        .json({ message: "Failed to update Hepatitis tests", error: errMsg });
+    }
+  },
 };
