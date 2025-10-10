@@ -143,4 +143,39 @@ export const BloodTestController = {
         .json({ message: "Failed to update HIV test", error: errMsg });
     }
   },
+
+  // Update the Syphilis test result for a blood unit
+  updateSyphilisTest: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { bloodId } = req.params;
+      const { syphilis } = req.body;
+
+      if (!bloodId) {
+        res.status(400).json({ message: "Blood unit ID is required." });
+        return;
+      }
+
+      if (typeof syphilis !== "boolean") {
+        res
+          .status(400)
+          .json({ message: "syphilis (boolean) is required in body." });
+        return;
+      }
+
+      const updated = await BloodTestService.updateSyphilisTest(
+        bloodId,
+        syphilis
+      );
+
+      res
+        .status(200)
+        .json({ message: "Syphilis test updated successfully", data: updated });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error updating Syphilis test:", errMsg);
+      res
+        .status(500)
+        .json({ message: "Failed to update Syphilis test", error: errMsg });
+    }
+  },
 };

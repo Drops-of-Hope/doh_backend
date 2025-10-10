@@ -67,7 +67,7 @@ export const BloodTestRepository = {
           ABOTest: aboTest as BloodGroup,
           hivTest: null,
           hemoglobin: 0,
-          syphilis: false,
+          syphilis: null,
           hepatitisB: false,
           hepatitisC: false,
           malaria: false,
@@ -159,7 +159,46 @@ export const BloodTestRepository = {
           ABOTest: "O_POSITIVE" as BloodGroup,
           hivTest,
           hemoglobin: 0,
-          syphilis: false,
+          syphilis: null,
+          hepatitisB: false,
+          hepatitisC: false,
+          malaria: false,
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    }
+
+    return result;
+  },
+
+  // Update or create a BloodTest record's syphilis field for a given blood unit
+  async upsertSyphilisTest(bloodId: string, syphilis: boolean) {
+    const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
+
+    let result;
+
+    if (existing) {
+      result = await prisma.bloodTest.update({
+        where: { id: existing.id },
+        data: {
+          syphilis,
+          testDateTime: new Date(),
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    } else {
+      // Provide safe defaults for non-nullable fields
+      result = await prisma.bloodTest.create({
+        data: {
+          bloodId,
+          testDateTime: new Date(),
+          status: "PENDING",
+          ABOTest: "O_POSITIVE" as BloodGroup,
+          hivTest: null,
+          hemoglobin: 0,
+          syphilis,
           hepatitisB: false,
           hepatitisC: false,
           malaria: false,

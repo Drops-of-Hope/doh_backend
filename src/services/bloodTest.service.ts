@@ -68,4 +68,22 @@ export const BloodTestService = {
       throw new Error("Failed to update HIV test");
     }
   },
+
+  // Update the Syphilis test result for a blood unit. Creates a BloodTest record if needed.
+  async updateSyphilisTest(bloodId: string, syphilis: boolean) {
+    try {
+      if (!bloodId || typeof syphilis !== "boolean") {
+        throw new Error("Missing bloodId or invalid syphilis");
+      }
+
+      const updated = await BloodTestRepository.upsertSyphilisTest(
+        bloodId,
+        syphilis
+      );
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateSyphilisTest:", error);
+      throw new Error("Failed to update Syphilis test");
+    }
+  },
 };

@@ -321,7 +321,7 @@ model BloodTest {
   ABOTest       BloodGroup
   hivTest       Boolean?
   hemoglobin    Float
-  syphilis      Boolean
+  syphilis      Boolean?
   hepatitisB    Boolean
   hepatitisC    Boolean
   malaria       Boolean

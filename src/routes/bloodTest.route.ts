@@ -15,6 +15,9 @@ router.get("/test/:bloodId", BloodTestController.getTestByBloodId);
 //Route to test blood type
 router.post("/type/:bloodId", BloodTestController.updateBloodType);
 
+// Route to update syphilis test result for a blood unit
+router.post("/syphilis/:bloodId", BloodTestController.updateSyphilisTest);
+
 // Route to update HIV test result for a blood unit
 router.post("/hiv/:bloodId", BloodTestController.updateHivTest);
 
