@@ -1,4 +1,5 @@
 import { prisma } from "../config/db.js";
+import { BloodGroup } from "@prisma/client";
 
 export const BloodTestRepository = {
   // Get all blood tests pending for a specific inventory
@@ -48,7 +49,7 @@ export const BloodTestRepository = {
       result = await prisma.bloodTest.update({
         where: { id: existing.id },
         data: {
-          ABOTest: aboTest as any,
+          ABOTest: aboTest as BloodGroup,
           testDateTime: new Date(),
           resultPending: true,
         },
@@ -63,7 +64,7 @@ export const BloodTestRepository = {
           bloodId,
           testDateTime: new Date(),
           status: "PENDING",
-          ABOTest: aboTest as any,
+          ABOTest: aboTest as BloodGroup,
           hivTest: null,
           hemoglobin: 0,
           syphilis: false,
@@ -155,7 +156,7 @@ export const BloodTestRepository = {
           bloodId,
           testDateTime: new Date(),
           status: "PENDING",
-          ABOTest: "O_POSITIVE" as any,
+          ABOTest: "O_POSITIVE" as BloodGroup,
           hivTest,
           hemoglobin: 0,
           syphilis: false,

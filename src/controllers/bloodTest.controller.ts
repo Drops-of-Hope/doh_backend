@@ -15,11 +15,12 @@ export const BloodTestController = {
       const bloodUnits = await BloodTestService.findAll(inventoryId);
 
       res.status(200).json(bloodUnits);
-    } catch (error: any) {
-      console.error("Error fetching blood units for testing:", error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error fetching blood units for testing:", errMsg);
       res.status(500).json({
         message: "Failed to fetch blood units awaiting testing.",
-        error: error.message,
+        error: errMsg,
       });
     }
   },
@@ -41,11 +42,12 @@ export const BloodTestController = {
       }
 
       res.status(200).json(bloodUnit);
-    } catch (error: any) {
-      console.error("Error fetching blood unit:", error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error fetching blood unit:", errMsg);
       res.status(500).json({
         message: "Failed to fetch blood unit.",
-        error: error.message,
+        error: errMsg,
       });
     }
   },
@@ -74,11 +76,12 @@ export const BloodTestController = {
         message: "Blood test updated successfully",
         data: updated,
       });
-    } catch (error: any) {
-      console.error("Error updating blood type:", error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error updating blood type:", errMsg);
       res
         .status(500)
-        .json({ message: "Failed to update blood type", error: error.message });
+        .json({ message: "Failed to update blood type", error: errMsg });
     }
   },
 
@@ -100,11 +103,12 @@ export const BloodTestController = {
       }
 
       res.status(200).json(test);
-    } catch (error: any) {
-      console.error("Error fetching blood test:", error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error fetching blood test:", errMsg);
       res
         .status(500)
-        .json({ message: "Failed to fetch blood test", error: error.message });
+        .json({ message: "Failed to fetch blood test", error: errMsg });
     }
   },
 
@@ -131,11 +135,12 @@ export const BloodTestController = {
       res
         .status(200)
         .json({ message: "HIV test updated successfully", data: updated });
-    } catch (error: any) {
-      console.error("Error updating HIV test:", error);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error updating HIV test:", errMsg);
       res
         .status(500)
-        .json({ message: "Failed to update HIV test", error: error.message });
+        .json({ message: "Failed to update HIV test", error: errMsg });
     }
   },
 };
