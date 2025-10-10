@@ -319,9 +319,9 @@ model BloodTest {
   testDateTime  DateTime
   status        TestStatus
   ABOTest       BloodGroup
-  hivTest       Boolean
+  hivTest       Boolean?
   hemoglobin    Float
-  syphilis      Boolean
+  syphilis      Boolean?
   hepatitisB    Boolean
   hepatitisC    Boolean
   malaria       Boolean
