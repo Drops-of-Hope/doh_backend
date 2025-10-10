@@ -33,6 +33,8 @@ export const BloodService = {
     bloodGroup: string,
     _numberOfUnitsRequested: number
   ): Promise<{ totalAvailableUnits: number; matchingCount: number }> => {
+    // Reference unused param to satisfy eslint without changing logic
+    void _numberOfUnitsRequested;
     const bgEnum = toBloodGroupEnum(bloodGroup);
 
     // Build where clause; if blood group is parsable, filter via related blood tests' ABOTest
