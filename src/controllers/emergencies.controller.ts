@@ -112,7 +112,7 @@ export const EmergenciesController = {
       });
     }
   },
-  // GET /emergencies
+// GET /emergencies
   getEmergencies: async (req: Request, res: Response): Promise<void> => {
     try {
       const { status, limit = "5" } = req.query;
@@ -132,13 +132,16 @@ export const EmergenciesController = {
             },
           },
         },
-        orderBy: [{ urgencyLevel: "asc" }, { createdAt: "desc" }],
+        orderBy: [
+          { urgencyLevel: "asc" },
+          { createdAt: "desc" },
+        ],
         take: limitNum,
       });
 
       res.status(200).json({
         data: {
-          emergencies: emergencies.map((emergency) => ({
+          emergencies: emergencies.map(emergency => ({
             id: emergency.id,
             title: emergency.title,
             description: emergency.description,
@@ -169,10 +172,7 @@ export const EmergenciesController = {
   },
 
   // POST /emergencies/:id/respond
-  respondToEmergency: async (
-    req: AuthenticatedRequest,
-    res: Response
-  ): Promise<void> => {
+  respondToEmergency: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
       const { responseType, message, contactInfo } = req.body;
