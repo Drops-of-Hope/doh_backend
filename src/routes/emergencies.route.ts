@@ -7,6 +7,9 @@ const router = Router();
 // GET /emergencies
 router.get("/", EmergenciesController.getEmergencies);
 
+// POST /emergencies - Create new emergency request
+router.post("/", authenticateToken, EmergenciesController.createEmergency);
+
 // POST /emergencies/:id/respond
 router.post("/:id/respond", authenticateToken, EmergenciesController.respondToEmergency);
 
