@@ -1,5 +1,5 @@
 import { prisma } from "../config/db.js";
-import { BloodGroup } from "@prisma/client";
+import { BloodGroup, Prisma } from "@prisma/client";
 
 export const BloodTestRepository = {
   // Get all blood tests pending for a specific inventory
@@ -219,7 +219,7 @@ export const BloodTestRepository = {
   ) {
     const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
 
-    let data: any = {
+    const data: Prisma.BloodTestUpdateInput = {
       testDateTime: new Date(),
       resultPending: true,
     };
