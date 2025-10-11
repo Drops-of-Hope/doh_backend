@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { MedicalEstablishment } from "@prisma/client";
 import { MedicalEstablishmentsService } from "../services/medicalEstablishments.service.js";
 
 export const MedicalEstablishmentsController = {
@@ -11,16 +12,31 @@ export const MedicalEstablishmentsController = {
     try {
       const { district } = req.query;
 
-      if (!district || typeof district !== "string") {
-        res.status(400).json({
-          message: "District query parameter is required and must be a string",
-        });
-        return;
+      let establishments;
+      if (district && typeof district === "string") {
+        establishments =
+          await MedicalEstablishmentsService.getMedicalEstablishments(district);
+      } else {
+        establishments =
+          await MedicalEstablishmentsService.getAllMedicalEstablishments();
       }
 
-      const establishments =
-        await MedicalEstablishmentsService.getMedicalEstablishments(district);
-      res.status(200).json(establishments);
+      // Ensure response format matches frontend requirements
+      const formattedEstablishments = establishments.map(
+        (est: MedicalEstablishment) => ({
+          id: est.id,
+          name: est.name,
+          address: est.address,
+          region: est.region,
+          email: est.email,
+          bloodCapacity: est.bloodCapacity,
+          isBloodBank: est.isBloodBank,
+        })
+      );
+
+      res.status(200).json({
+        data: formattedEstablishments,
+      });
     } catch (error) {
       console.error("Error fetching establishments:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -55,6 +71,37 @@ export const MedicalEstablishmentsController = {
       console.error("Error retrieving appointment slots:", error);
       res.status(500).json({
         message: "Failed to retrieve appointment slots",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  getInventory: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { establishmentId } = req.params;
+
+      if (!establishmentId) {
+        res.status(400).json({
+          message: "Medical establishment ID is required",
+        });
+        return;
+      }
+
+      const inventory =
+        await MedicalEstablishmentsService.getInventory(establishmentId);
+
+      if (!inventory) {
+        res.status(404).json({
+          message: "No inventory found for the specified establishment",
+        });
+        return;
+      }
+
+      res.status(200).json(inventory);
+    } catch (error) {
+      console.error("Error fetching inventory details:", error);
+      res.status(500).json({
+        message: "Failed to retrieve inventory details",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

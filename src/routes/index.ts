@@ -14,6 +14,10 @@ import qrRoutes from "./qr.route.js";
 import notificationRoutes from "./notification.route.js";
 import donationFormRoutes from "./donationForm.route.js";
 import eligibilityRoutes from "./eligibility.route.js";
+import healthVitalsRoutes from './heathVitals.route.js';
+import bloodDonationRoutes from './bloodDonation.route.js';
+import activitiesRoutes from "./activities.route.js";
+import bloodTestRoutes from "./bloodTest.route.js";
 
 const router = Router();
 
@@ -50,6 +54,9 @@ router.use("/qr", qrRoutes);
 // Notification routes
 router.use("/notifications", notificationRoutes);
 
+// Activities routes
+router.use("/activities", activitiesRoutes);
+
 // Dummy routes (for testing)
 router.use("/dummies", dummyRoutes);
 
@@ -58,5 +65,14 @@ router.use("/donation-forms", donationFormRoutes);
 
 //route to update availability in case of risk factors in blood donation form
 router.use("/eligibility", eligibilityRoutes);
+
+//route to add health info for each donation (eg- weight, bp)
+router.use("/health-vitals", healthVitalsRoutes);
+
+//route to add blood, donation info when a donor donates blood
+router.use("/blood-donation", bloodDonationRoutes);
+
+//route to handle blood testings
+router.use("/blood-test", bloodTestRoutes);
 
 export default router;

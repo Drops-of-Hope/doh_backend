@@ -113,7 +113,18 @@ export const AppointmentSlotsController = {
       const slots = await AppointmentSlotsService.getAvailableSlots(
         establishmentId
       );
-      res.status(200).json(slots);
+      
+      // Format response to match mobile app expectations
+      res.status(200).json({
+        data: slots.map((slot) => ({
+          id: slot.id,
+          startTime: slot.startTime,
+          endTime: slot.endTime,
+          isAvailable: slot.isAvailable,
+          donorsPerSlot: slot.donorsPerSlot,
+          medicalEstablishmentId: slot.medicalEstablishmentId,
+        })),
+      });
     } catch (error) {
       console.error("Error retrieving available slots:", error);
       res.status(500).json({

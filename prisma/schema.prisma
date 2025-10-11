@@ -40,6 +40,7 @@ model User {
   StaffAssignment        StaffAssignment[]
   userDetails            UserDetail?
   homeStats              UserHomeStats?
+  healthVitals HealthVital[]
 }
 
 model UserDetail {
@@ -212,6 +213,19 @@ model BloodDonationForm {
   user               User?          @relation(fields: [userId], references: [id])
 }
 
+model HealthVital {
+  id             String      @id @default(uuid())
+  userId         String
+  appointmentId  String?     @unique
+  weight         Float
+  bp             Float
+  cvsPulse       Float
+  dateTime       DateTime    @default(now())
+
+  user           User        @relation(fields: [userId], references: [id])
+  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
+}
+
 model BloodDonation {
   id                String            @id @default(uuid())
   bdfId             String            @unique
@@ -288,7 +302,7 @@ model Appointment {
   slot                   AppointmentSlot      @relation(fields: [slotId], references: [id])
   bloodDonationForms     BloodDonationForm[]
   bloodTests             BloodTest[]
-  HealthVital            HealthVital?
+  healthVital  HealthVital?
 }
 
 model Inventory {
@@ -309,9 +323,9 @@ model BloodTest {
   hivTest       Boolean?
   hemoglobin    Float
   syphilis      Boolean?
-  hepatitisB    Boolean?
-  hepatitisC    Boolean?
-  malaria       Boolean?
+  hepatitisB    Boolean
+  hepatitisC    Boolean
+  malaria       Boolean
   resultPending Boolean
   appointmentId String?
   inventoryId   String?
