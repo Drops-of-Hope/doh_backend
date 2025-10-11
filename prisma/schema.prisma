@@ -33,6 +33,7 @@ model User {
   emergencyRequests      EmergencyRequest[]
   EquipmentAssignment    EquipmentAssignment[]
   feedbacks              Feedback[]
+  HealthVital            HealthVital[]
   MaintenanceLog         MaintenanceLog[]
   notifications          Notification[]
   qrScans                QRScan[]
@@ -512,6 +513,18 @@ model StaffAssignment {
 model Dummy {
   id        Int    @id @default(autoincrement())
   dummyName String
+}
+
+model HealthVital {
+  id            String       @id
+  userId        String
+  appointmentId String?      @unique
+  weight        Float
+  bp            Float
+  cvsPulse      Float
+  dateTime      DateTime     @default(now())
+  Appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  User          User         @relation(fields: [userId], references: [id])
 }
 
 enum BloodGroup {
