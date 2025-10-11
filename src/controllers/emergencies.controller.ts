@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { prisma } from "../config/db.js";
+import { ActivityType } from "@prisma/client";
 
 interface AuthenticatedRequest extends Request {
   user?: {
@@ -81,7 +82,7 @@ export const EmergenciesController = {
       await prisma.activity.create({
         data: {
           userId,
-          type: "EMERGENCY_RESPONDED" as any, // using existing enum value for emergency related activity
+          type: ActivityType.EMERGENCY_RESPONDED,
           title: "Created Emergency Request",
           description: `Created emergency: ${created.title}`,
           metadata: {
@@ -112,7 +113,7 @@ export const EmergenciesController = {
       });
     }
   },
-// GET /emergencies
+  // GET /emergencies
   getEmergencies: async (req: Request, res: Response): Promise<void> => {
     try {
       const { status, limit = "5" } = req.query;
@@ -132,16 +133,13 @@ export const EmergenciesController = {
             },
           },
         },
-        orderBy: [
-          { urgencyLevel: "asc" },
-          { createdAt: "desc" },
-        ],
+        orderBy: [{ urgencyLevel: "asc" }, { createdAt: "desc" }],
         take: limitNum,
       });
 
       res.status(200).json({
         data: {
-          emergencies: emergencies.map(emergency => ({
+          emergencies: emergencies.map((emergency) => ({
             id: emergency.id,
             title: emergency.title,
             description: emergency.description,
@@ -172,7 +170,10 @@ export const EmergenciesController = {
   },
 
   // POST /emergencies/:id/respond
-  respondToEmergency: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  respondToEmergency: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { id } = req.params;
       const { responseType, message, contactInfo } = req.body;
