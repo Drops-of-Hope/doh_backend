@@ -323,9 +323,9 @@ model BloodTest {
   hivTest       Boolean?
   hemoglobin    Float
   syphilis      Boolean?
-  hepatitisB    Boolean
-  hepatitisC    Boolean
-  malaria       Boolean
+  hepatitisB    Boolean?
+  hepatitisC    Boolean?
+  malaria       Boolean?
   resultPending Boolean
   appointmentId String?
   inventoryId   String?

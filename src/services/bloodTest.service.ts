@@ -86,4 +86,70 @@ export const BloodTestService = {
       throw new Error("Failed to update Syphilis test");
     }
   },
+
+  // Update Hepatitis B and/or Hepatitis C test results for a blood unit
+  async updateHepatitisTest(
+    bloodId: string,
+    data: { hepatitisB?: boolean; hepatitisC?: boolean }
+  ) {
+    try {
+      if (!bloodId) {
+        throw new Error("Missing bloodId");
+      }
+
+      const { hepatitisB, hepatitisC } = data;
+
+      if (hepatitisB === undefined && hepatitisC === undefined) {
+        throw new Error("At least one of hepatitisB or hepatitisC is required");
+      }
+
+      const updated = await BloodTestRepository.upsertHepatitisTest(
+        bloodId,
+        hepatitisB,
+        hepatitisC
+      );
+
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateHepatitisTest:", error);
+      throw new Error("Failed to update Hepatitis tests");
+    }
+  },
+
+  // Update the Malaria test result for a blood unit. Creates a BloodTest record if needed.
+  async updateMalariaTest(bloodId: string, malaria: boolean) {
+    try {
+      if (!bloodId || typeof malaria !== "boolean") {
+        throw new Error("Missing bloodId or invalid malaria");
+      }
+
+      const updated = await BloodTestRepository.upsertMalariaTest(
+        bloodId,
+        malaria
+      );
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateMalariaTest:", error);
+      throw new Error("Failed to update Malaria test");
+    }
+  },
+
+  // Update hemoglobin value and mark resultPending as false (finalize results)
+  async updateHemoglobin(bloodId: string, hemoglobin: number) {
+    try {
+      if (!bloodId || hemoglobin === undefined || hemoglobin === null) {
+        throw new Error("Missing bloodId or hemoglobin");
+      }
+
+      const updated = await BloodTestRepository.upsertHemoglobin(
+        bloodId,
+        hemoglobin
+      );
+
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateHemoglobin:", error);
+      throw new Error("Failed to update hemoglobin");
+    }
+  },
 };
