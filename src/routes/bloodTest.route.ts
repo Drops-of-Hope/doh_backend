@@ -27,4 +27,7 @@ router.post("/hepatitis/:bloodId", BloodTestController.updateHepatitisTest);
 // Route to update Malaria test result for a blood unit
 router.post("/malaria/:bloodId", BloodTestController.updateMalariaTest);
 
+// Route to update hemoglobin value and mark resultPending as false
+router.post("/hemoglobin/:bloodId", BloodTestController.updateHemoglobin);
+
 export default router;

@@ -133,4 +133,23 @@ export const BloodTestService = {
       throw new Error("Failed to update Malaria test");
     }
   },
+
+  // Update hemoglobin value and mark resultPending as false (finalize results)
+  async updateHemoglobin(bloodId: string, hemoglobin: number) {
+    try {
+      if (!bloodId || hemoglobin === undefined || hemoglobin === null) {
+        throw new Error("Missing bloodId or hemoglobin");
+      }
+
+      const updated = await BloodTestRepository.upsertHemoglobin(
+        bloodId,
+        hemoglobin
+      );
+
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateHemoglobin:", error);
+      throw new Error("Failed to update hemoglobin");
+    }
+  },
 };

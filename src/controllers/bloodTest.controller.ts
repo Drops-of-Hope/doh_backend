@@ -264,4 +264,43 @@ export const BloodTestController = {
         .json({ message: "Failed to update Malaria test", error: errMsg });
     }
   },
+
+  // Update the hemoglobin value for a blood unit and mark results as finalized
+  updateHemoglobin: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { bloodId } = req.params;
+      const { hemoglobin } = req.body;
+
+      if (!bloodId) {
+        res.status(400).json({ message: "Blood unit ID is required." });
+        return;
+      }
+
+      if (hemoglobin === undefined || hemoglobin === null) {
+        res
+          .status(400)
+          .json({ message: "hemoglobin (number) is required in body." });
+        return;
+      }
+
+      const hbValue = Number(hemoglobin);
+      if (Number.isNaN(hbValue)) {
+        res.status(400).json({ message: "hemoglobin must be a number." });
+        return;
+      }
+
+      const updated = await BloodTestService.updateHemoglobin(bloodId, hbValue);
+
+      res.status(200).json({
+        message: "Hemoglobin updated successfully",
+        data: updated,
+      });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error updating hemoglobin:", errMsg);
+      res
+        .status(500)
+        .json({ message: "Failed to update hemoglobin", error: errMsg });
+    }
+  },
 };

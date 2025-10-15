@@ -295,4 +295,45 @@ export const BloodTestRepository = {
 
     return result;
   },
+
+  // Update or create a BloodTest record's hemoglobin value and mark results finalized
+  async upsertHemoglobin(bloodId: string, hemoglobin: number) {
+    const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
+
+    let result;
+
+    if (existing) {
+      // Update hemoglobin, timestamp, and mark resultPending false and status TESTED
+      result = await prisma.bloodTest.update({
+        where: { id: existing.id },
+        data: {
+          hemoglobin,
+          testDateTime: new Date(),
+          resultPending: false,
+          status: "TESTED",
+        },
+        include: { blood: true },
+      });
+    } else {
+      // Create a new BloodTest record with supplied hemoglobin and mark as TESTED
+      result = await prisma.bloodTest.create({
+        data: {
+          bloodId,
+          testDateTime: new Date(),
+          status: "TESTED",
+          ABOTest: "O_POSITIVE" as BloodGroup,
+          hivTest: null,
+          hemoglobin,
+          syphilis: null,
+          hepatitisB: null,
+          hepatitisC: null,
+          malaria: false,
+          resultPending: false,
+        },
+        include: { blood: true },
+      });
+    }
+
+    return result;
+  },
 };
