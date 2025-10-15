@@ -18,6 +18,7 @@ import healthVitalsRoutes from './heathVitals.route.js';
 import bloodDonationRoutes from './bloodDonation.route.js';
 import activitiesRoutes from "./activities.route.js";
 import bloodTestRoutes from "./bloodTest.route.js";
+import bloodRequestRoutes from "./bloodRequest.route.js";
 
 const router = Router();
 
@@ -47,6 +48,9 @@ router.use("/campaigns", campaignsRoutes);
 
 // Emergency routes
 router.use("/emergencies", emergenciesRoutes);
+
+// Blood Request routes
+router.use("/blood-requests", bloodRequestRoutes);
 
 // QR code routes
 router.use("/qr", qrRoutes);
