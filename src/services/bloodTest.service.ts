@@ -115,4 +115,22 @@ export const BloodTestService = {
       throw new Error("Failed to update Hepatitis tests");
     }
   },
+
+  // Update the Malaria test result for a blood unit. Creates a BloodTest record if needed.
+  async updateMalariaTest(bloodId: string, malaria: boolean) {
+    try {
+      if (!bloodId || typeof malaria !== "boolean") {
+        throw new Error("Missing bloodId or invalid malaria");
+      }
+
+      const updated = await BloodTestRepository.upsertMalariaTest(
+        bloodId,
+        malaria
+      );
+      return updated;
+    } catch (error) {
+      console.error("Error in BloodTestService.updateMalariaTest:", error);
+      throw new Error("Failed to update Malaria test");
+    }
+  },
 };

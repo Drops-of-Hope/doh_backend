@@ -256,4 +256,43 @@ export const BloodTestRepository = {
     }
     return result;
   },
+
+  // Update or create a BloodTest record's malaria field for a given blood unit
+  async upsertMalariaTest(bloodId: string, malaria: boolean) {
+    const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
+
+    let result;
+
+    if (existing) {
+      result = await prisma.bloodTest.update({
+        where: { id: existing.id },
+        data: {
+          malaria,
+          testDateTime: new Date(),
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    } else {
+      // Provide safe defaults for non-nullable fields when creating a new record
+      result = await prisma.bloodTest.create({
+        data: {
+          bloodId,
+          testDateTime: new Date(),
+          status: "PENDING",
+          ABOTest: "O_POSITIVE" as BloodGroup,
+          hivTest: null,
+          hemoglobin: 0,
+          syphilis: null,
+          hepatitisB: null,
+          hepatitisC: null,
+          malaria,
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    }
+
+    return result;
+  },
 };

@@ -24,4 +24,7 @@ router.post("/hiv/:bloodId", BloodTestController.updateHivTest);
 // Route to update Hepatitis B and/or Hepatitis C test results for a blood unit
 router.post("/hepatitis/:bloodId", BloodTestController.updateHepatitisTest);
 
+// Route to update Malaria test result for a blood unit
+router.post("/malaria/:bloodId", BloodTestController.updateMalariaTest);
+
 export default router;

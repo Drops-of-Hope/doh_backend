@@ -191,12 +191,10 @@ export const BloodTestController = {
       }
 
       if (hepatitisB === undefined && hepatitisC === undefined) {
-        res
-          .status(400)
-          .json({
-            message:
-              "At least one of hepatitisB or hepatitisC (boolean) is required in body.",
-          });
+        res.status(400).json({
+          message:
+            "At least one of hepatitisB or hepatitisC (boolean) is required in body.",
+        });
         return;
       }
 
@@ -219,18 +217,51 @@ export const BloodTestController = {
         hepatitisC,
       });
 
-      res
-        .status(200)
-        .json({
-          message: "Hepatitis tests updated successfully",
-          data: updated,
-        });
+      res.status(200).json({
+        message: "Hepatitis tests updated successfully",
+        data: updated,
+      });
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
       console.error("Error updating Hepatitis tests:", errMsg);
       res
         .status(500)
         .json({ message: "Failed to update Hepatitis tests", error: errMsg });
+    }
+  },
+
+  // Update the Malaria test result for a blood unit
+  updateMalariaTest: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { bloodId } = req.params;
+      const { malaria } = req.body;
+
+      if (!bloodId) {
+        res.status(400).json({ message: "Blood unit ID is required." });
+        return;
+      }
+
+      if (typeof malaria !== "boolean") {
+        res
+          .status(400)
+          .json({ message: "malaria (boolean) is required in body." });
+        return;
+      }
+
+      const updated = await BloodTestService.updateMalariaTest(
+        bloodId,
+        malaria
+      );
+
+      res
+        .status(200)
+        .json({ message: "Malaria test updated successfully", data: updated });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error updating Malaria test:", errMsg);
+      res
+        .status(500)
+        .json({ message: "Failed to update Malaria test", error: errMsg });
     }
   },
 };
