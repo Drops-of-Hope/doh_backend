@@ -17,10 +17,10 @@ export const AppointmentsService = {
       throw new Error("Donor is not eligible to donate at this time");
     }
 
-    // 3. Check if slot is available
-    const isSlotAvailable = await AppointmentsRepository.checkSlotAvailability(slotId);
+    // 3. Check if slot is available for the specific date
+    const isSlotAvailable = await AppointmentsRepository.checkSlotAvailability(slotId, appointmentDate);
     if (!isSlotAvailable) {
-      throw new Error("Selected time slot is not available");
+      throw new Error("Selected time slot is not available for the chosen date");
     }
 
     // 4. Ensure medicalEstablishmentId is provided
@@ -45,11 +45,11 @@ export const AppointmentsService = {
   },
 
   // Get user's appointments by ID
-  getAppointmentsByUserId: async (userId: string) => {
+  getAppointmentsByUserId: async (userId: string, status?: string) => {
     if (!userId) {
       throw new Error("User ID is required");
     }
-    return await AppointmentsRepository.getAppointmentsByUserId(userId);
+    return await AppointmentsRepository.getAppointmentsByUserId(userId, status);
   },
 
   // Get all appointments for a medical establishment
@@ -66,7 +66,7 @@ export const AppointmentsService = {
     nextEligible.setDate(nextEligible.getDate() + 56); // 8 weeks
     return nextEligible;
   },
-  updateAppointmentStatus: async (appointmentId: string, status: string, confirmedById?: string) => {
+  updateAppointmentStatus: async (appointmentId: string, status: string) => {
     // Map incoming status strings from frontend to Prisma enum values
     const statusMap: Record<string, string> = {
       confirmed: "COMPLETED",
@@ -76,6 +76,6 @@ export const AppointmentsService = {
     if (!mapped) throw new Error("Unsupported status");
 
     // Delegate to repository to perform transactional update and audit log
-    return await AppointmentsRepository.updateAppointmentStatus(appointmentId, mapped, confirmedById);
+    return await AppointmentsRepository.updateAppointmentStatus(appointmentId, mapped);
   },
 };
