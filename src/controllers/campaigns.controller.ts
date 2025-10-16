@@ -192,7 +192,7 @@ export const CampaignsController = {
         const where = {
           isActive: true,
           startTime: { gte: new Date() },
-    isApproved: 'ACCEPTED',
+  isApproved: ApprovalStatus.ACCEPTED,
           ...(featured === "true" && { expectedDonors: { gte: 50 } }),
         };
 
@@ -282,7 +282,7 @@ export const CampaignsController = {
         return;
       }
 
-      if (!campaign.isActive || !campaign.isApproved) {
+      if (!campaign.isActive || campaign.isApproved !== ApprovalStatus.ACCEPTED) {
         res.status(400).json({
           success: false,
           error: "Campaign not available",
@@ -863,7 +863,7 @@ export const CampaignsController = {
         select: {
           organizerId: true,
           startTime: true,
-          isApproved: ApprovalStatus.ACCEPTED,
+          isApproved: true,
           _count: {
             select: {
               participations: true,
@@ -936,7 +936,7 @@ export const CampaignsController = {
 
       // Reset approval if significant changes made
       if (needsReApproval) {
-        updateData.isApproved = false;
+        updateData.isApproved = ApprovalStatus.PENDING;
       }
 
       const updatedCampaign = await prisma.campaign.update({
@@ -1181,115 +1181,14 @@ export const CampaignsController = {
   getCampaignDetails: async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
+      const result = await CampaignService.getCampaignDetails(id);
 
-      const [campaign, participationStats] = await Promise.all([
-        prisma.campaign.findUnique({
-          where: { id },
-          include: {
-            medicalEstablishment: {
-              select: {
-                id: true,
-                name: true,
-                address: true,
-                email: true,
-              },
-            },
-            organizer: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            _count: {
-              select: {
-                participations: true,
-              },
-            },
-          },
-        }),
-        prisma.campaignParticipation.aggregate({
-          where: { campaignId: id },
-          _count: {
-            id: true,
-          },
-        }),
-      ]);
-
-      if (!campaign) {
-        res.status(404).json({
-          success: false,
-          error: "Campaign not found",
-          message: "The specified campaign does not exist",
-        });
+      if (!result.success) {
+        res.status(404).json({ success: false, error: result.error || 'Campaign not found' });
         return;
       }
 
-      // Get additional stats
-      const [attendanceCount, donationCount] = await Promise.all([
-        prisma.campaignParticipation.count({
-          where: { 
-            campaignId: id,
-            attendanceMarked: true,
-          },
-        }),
-        prisma.campaignParticipation.count({
-          where: { 
-            campaignId: id,
-            donationCompleted: true,
-          },
-        }),
-      ]);
-
-      // Calculate goal progress
-      const goalProgress = campaign.expectedDonors > 0 
-        ? Math.round((donationCount / campaign.expectedDonors) * 100)
-        : 0;
-
-      // Build response according to requirements
-      const campaignDetails = {
-        id: campaign.id,
-        title: campaign.title,
-        description: campaign.description,
-        location: campaign.location,
-        startDate: campaign.startTime.toISOString(),
-        endDate: campaign.endTime.toISOString(),
-        goalBloodUnits: campaign.expectedDonors, // Using expectedDonors as goal
-        currentBloodUnits: donationCount,
-        status: campaign.isActive ? 'active' : 'completed',
-        organizer: {
-          id: campaign.organizer.id,
-          name: campaign.organizer.name,
-          email: campaign.organizer.email,
-          phone: campaign.contactPersonPhone,
-          organization: "Department of Health", // Default organization
-        },
-        medicalEstablishment: {
-          id: campaign.medicalEstablishment.id,
-          name: campaign.medicalEstablishment.name,
-          address: campaign.medicalEstablishment.address,
-          contactNumber: campaign.contactPersonPhone,
-        },
-        requirements: {
-          bloodTypes: ["A+", "B+", "O+", "AB+", "A-", "B-", "O-", "AB-"], // Default to all types
-          ageRange: {
-            min: 18,
-            max: 65,
-          },
-          minimumWeight: 50,
-        },
-        stats: {
-          totalDonors: participationStats._count.id,
-          totalAttendance: attendanceCount,
-          screenedPassed: attendanceCount, // Assuming all attendees passed screening
-          currentDonations: donationCount,
-          goalProgress,
-        },
-        createdAt: campaign.createdAt.toISOString(),
-        updatedAt: campaign.updatedAt.toISOString(),
-      };
-
-      res.status(200).json(campaignDetails);
+      res.status(200).json(result.campaign);
     } catch (error) {
       console.error("Get campaign details error:", error);
       res.status(500).json({

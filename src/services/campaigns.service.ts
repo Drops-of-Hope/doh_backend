@@ -144,7 +144,7 @@ export const CampaignService = {
         contactPersonName: campaignData.contactPersonName,
         contactPersonPhone: campaignData.contactPersonPhone,
         requirements: campaignData.requirements,
-    isApproved: ApprovalStatus.PENDING as unknown as Prisma.InputJsonValue, // Requires approval
+  isApproved: ApprovalStatus.PENDING, // Requires approval
         organizer: { connect: { id: organizerId } },
         medicalEstablishment: { connect: { id: campaignData.medicalEstablishmentId } },
       });
@@ -242,6 +242,66 @@ export const CampaignService = {
     } catch (error) {
       console.error('Campaign analytics service error:', error);
       throw new Error('Failed to fetch campaign analytics');
+    }
+  },
+
+  // Get full campaign details by id
+  getCampaignDetails: async (campaignId: string) => {
+    try {
+      const campaign = await CampaignRepository.findById(campaignId);
+      if (!campaign) {
+        return { success: false, error: 'Campaign not found' };
+      }
+
+  // repository has more analytics if needed; currently compute basic stats from participations
+
+      // Count attendance and donations via participations provided on campaign
+      const attendanceCount = campaign.participations.filter(p => p.attendanceMarked).length;
+      const donationCount = campaign.participations.filter(p => p.donationCompleted).length;
+
+      const goalProgress = campaign.expectedDonors > 0
+        ? Math.round((donationCount / campaign.expectedDonors) * 100)
+        : 0;
+
+      const campaignDetails = {
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        location: campaign.location,
+        startDate: campaign.startTime.toISOString(),
+        endDate: campaign.endTime.toISOString(),
+        goalBloodUnits: campaign.expectedDonors,
+        currentBloodUnits: donationCount,
+        status: campaign.isActive ? 'active' : 'completed',
+        organizer: {
+          id: campaign.organizerId,
+          name: campaign.organizer.name,
+          email: campaign.organizer.email,
+          phone: campaign.contactPersonPhone,
+          organization: 'Department of Health',
+        },
+        medicalEstablishment: {
+          id: campaign.medicalEstablishment.id,
+          name: campaign.medicalEstablishment.name,
+          address: campaign.medicalEstablishment.address,
+          contactNumber: campaign.contactPersonPhone,
+        },
+        requirements: campaign.requirements || {},
+        stats: {
+          totalDonors: campaign.participations.length,
+          totalAttendance: attendanceCount,
+          screenedPassed: attendanceCount,
+          currentDonations: donationCount,
+          goalProgress,
+        },
+        createdAt: campaign.createdAt.toISOString(),
+        updatedAt: campaign.updatedAt.toISOString(),
+      };
+
+      return { success: true, campaign: campaignDetails };
+    } catch (error) {
+      console.error('Get campaign details service error:', error);
+      throw new Error('Failed to fetch campaign details');
     }
   },
 
