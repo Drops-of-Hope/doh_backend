@@ -67,23 +67,37 @@ export const AppointmentsRepository = {
     return new Date() >= user.nextEligible;
   },
 
-  // Check if slot is available
-  checkSlotAvailability: async (slotId: string): Promise<boolean> => {
+  // Check if slot is available for a specific date
+  checkSlotAvailability: async (slotId: string, appointmentDate?: Date): Promise<boolean> => {
     const slot = await prisma.appointmentSlot.findUnique({
       where: { id: slotId },
       select: {
         isAvailable: true,
         donorsPerSlot: true,
-        _count: {
-          select: { appointments: true },
-        },
+        appointments: appointmentDate ? {
+          where: {
+            appointmentDate: {
+              gte: new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), appointmentDate.getDate()),
+              lt: new Date(appointmentDate.getFullYear(), appointmentDate.getMonth(), appointmentDate.getDate() + 1),
+            },
+          },
+        } : true,
       },
     });
 
     if (!slot || !slot.isAvailable) return false;
 
-    // Check if slot has capacity
-    return slot._count.appointments < slot.donorsPerSlot;
+    // If appointment date is provided, check date-specific capacity
+    if (appointmentDate && Array.isArray(slot.appointments)) {
+      return slot.appointments.length < slot.donorsPerSlot;
+    }
+
+    // Fallback: check total capacity (for backward compatibility)
+    const totalAppointments = await prisma.appointment.count({
+      where: { slotId },
+    });
+    
+    return totalAppointments < slot.donorsPerSlot;
   },
 
   // Get appointment by ID
@@ -99,17 +113,38 @@ export const AppointmentsRepository = {
   },
 
   // Get user appointments by userID
-  getAppointmentsByUserId: async (userId: string) => {
+  getAppointmentsByUserId: async (userId: string, status?: string) => {
     if (!userId) {
       throw new Error("User ID is required");
     }
+    
+    const whereClause: { donorId: string; scheduled?: AppointmentStatus } = { donorId: userId };
+    
+    // Map status filter to Prisma enum values
+    if (status) {
+      switch (status.toLowerCase()) {
+        case 'upcoming':
+          whereClause.scheduled = AppointmentStatus.PENDING;
+          break;
+        case 'completed':
+          whereClause.scheduled = AppointmentStatus.COMPLETED;
+          break;
+        case 'cancelled':
+          whereClause.scheduled = AppointmentStatus.CANCELLED;
+          break;
+        default:
+          throw new Error("Invalid status filter. Allowed values: upcoming, completed, cancelled");
+      }
+    }
+    
     return await prisma.appointment.findMany({
-      where: { donorId: userId },
+      where: whereClause,
       include: {
         donor: true,
         slot: true,
         medicalEstablishment: true,
       },
+      orderBy: { appointmentDate: 'desc' },
     });
   },
 

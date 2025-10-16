@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { BloodTestService } from "../services/bloodTest.service";
+import { BloodTestService } from "../services/bloodTest.service.js";
 
 export const BloodTestController = {
   // Get all blood units waiting to be tested for a specific medical establishment inventory

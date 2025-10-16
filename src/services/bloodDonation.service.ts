@@ -1,4 +1,4 @@
-import { BloodDonationRepository } from '../repositories/bloodDonation.repository';
+import { BloodDonationRepository } from '../repositories/bloodDonation.repository.js';
 
 export const BloodDonationService = {
   createBloodDonation: async (data: {
