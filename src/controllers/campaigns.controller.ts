@@ -474,6 +474,44 @@ export const CampaignsController = {
     }
   },
 
+  // GET /campaigns/pending/medical-establishment/:medicalEstablishmentId
+  getPendingCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+      const { page = '1', limit = '10' } = req.query;
+
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        return;
+      }
+
+      if (isNaN(pageNum) || isNaN(limitNum) || pageNum <= 0 || limitNum <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid pagination parameters' });
+        return;
+      }
+
+      const result = await CampaignService.getPendingByMedicalEstablishment(medicalEstablishmentId, { page: pageNum, limit: limitNum });
+
+      const campaigns = result.data?.campaigns || [];
+      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+
+      res.status(200).json({
+        success: true,
+        campaigns,
+        data: {
+          campaigns,
+          pagination,
+        },
+      });
+    } catch (error) {
+      console.error('Get pending campaigns by medical establishment error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
   // POST /campaigns
   createCampaign: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {

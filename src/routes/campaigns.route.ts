@@ -13,6 +13,9 @@ router.get("/upcoming", CampaignsController.getUpcomingCampaigns);
 // GET /campaigns/pending - Get campaigns pending approval
 router.get("/pending", CampaignsController.getPendingCampaigns);
 
+// GET /campaigns/pending/medical-establishment/:medicalEstablishmentId - Get pending campaigns for a medical establishment
+router.get('/pending/medical-establishment/:medicalEstablishmentId', CampaignsController.getPendingCampaignsByMedicalEstablishment);
+
 // GET /campaigns/:id - Get single campaign details
 router.get("/:id", CampaignsController.getCampaignDetails);
 

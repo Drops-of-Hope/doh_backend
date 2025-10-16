@@ -305,6 +305,17 @@ export const CampaignService = {
     }
   },
 
+  // Get pending campaigns filtered by blood bank id
+  getPendingByMedicalEstablishment: async (medicalEstablishmentId: string, params: { page?: number; limit?: number } = {}) => {
+    try {
+      const data = await CampaignRepository.findPendingByMedicalEstablishment(medicalEstablishmentId, params);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Get pending by medical establishment service error:', error);
+      throw new Error('Failed to fetch pending campaigns for medical establishment');
+    }
+  },
+
   // Check campaign permissions
   checkCampaignPermissions: async (campaignId: string, userId: string) => {
     try {

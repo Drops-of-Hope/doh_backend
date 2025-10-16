@@ -247,6 +247,55 @@ export const CampaignRepository = {
     };
   },
 
+  // Find campaigns pending approval for a specific blood bank
+  findPendingByMedicalEstablishment: async (medicalEstablishmentId: string, params: { page?: number; limit?: number } = {}) => {
+    const { page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CampaignWhereInput = {
+      medicalEstablishmentId,
+      isApproved: ApprovalStatus.PENDING as unknown as Prisma.EnumApprovalStatusFilter,
+    } as Prisma.CampaignWhereInput;
+
+    const [campaigns, totalCount] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: { select: { id: true, name: true, email: true } },
+          medicalEstablishment: { select: { id: true, name: true, address: true } },
+          _count: { select: { participations: true } },
+        },
+      }),
+      prisma.campaign.count({ where }),
+    ]);
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        location: campaign.location,
+        expectedDonors: campaign.expectedDonors,
+        contactPersonName: campaign.contactPersonName,
+        contactPersonPhone: campaign.contactPersonPhone,
+        requirements: campaign.requirements,
+        isApproved: campaign.isApproved,
+        isActive: campaign.isActive,
+        organizer: campaign.organizer,
+        medicalEstablishment: campaign.medicalEstablishment,
+        participantsCount: campaign._count.participations,
+        createdAt: campaign.createdAt,
+        updatedAt: campaign.updatedAt,
+      })),
+      pagination: { page, limit, total: totalCount, totalPages: Math.ceil(totalCount / limit) },
+    };
+  },
+
   // Create new campaign
   create: async (campaignData: Prisma.CampaignCreateInput) => {
     return await prisma.campaign.create({
