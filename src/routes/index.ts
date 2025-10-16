@@ -16,6 +16,7 @@ import donationFormRoutes from "./donationForm.route.js";
 import eligibilityRoutes from "./eligibility.route.js";
 import healthVitalsRoutes from './heathVitals.route.js';
 import bloodDonationRoutes from './bloodDonation.route.js';
+import bloodRoutes from './blood.routes.js';
 import activitiesRoutes from "./activities.route.js";
 import bloodTestRoutes from "./bloodTest.route.js";
 
@@ -74,5 +75,8 @@ router.use("/blood-donation", bloodDonationRoutes);
 
 //route to handle blood testings
 router.use("/blood-test", bloodTestRoutes);
+
+// blood availability and related routes
+router.use("/blood", bloodRoutes);
 
 export default router;
