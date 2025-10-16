@@ -640,6 +640,28 @@ export const CampaignsController = {
         }
 
         // Side effects: push + SSE (optional parity with QR flow)
+        // Create immediate DONATION_ELIGIBLE notification for donor
+        try {
+          await prisma.notification.create({
+            data: {
+              userId,
+              type: "DONATION_ELIGIBLE",
+              title: "QR scanned",
+              message:
+                "Your attendance has been verified. You can now proceed with the donation form.",
+              isRead: false,
+              metadata: {
+                campaignId,
+                scannedAt: new Date().toISOString(),
+              },
+            },
+          });
+        } catch (e) {
+          console.error(
+            "Failed to create DONATION_ELIGIBLE notification (manual attendance create):",
+            e
+          );
+        }
         try {
           await PushService.sendToUser(userId, {
             title: "Attendance Marked",
@@ -693,6 +715,28 @@ export const CampaignsController = {
       }
 
       // Side effects: push + SSE (optional parity with QR flow)
+      // Create immediate DONATION_ELIGIBLE notification for donor
+      try {
+        await prisma.notification.create({
+          data: {
+            userId,
+            type: "DONATION_ELIGIBLE",
+            title: "QR scanned",
+            message:
+              "Your attendance has been verified. You can now proceed with the donation form.",
+            isRead: false,
+            metadata: {
+              campaignId,
+              scannedAt: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (e) {
+        console.error(
+          "Failed to create DONATION_ELIGIBLE notification (manual attendance update):",
+          e
+        );
+      }
       try {
         await PushService.sendToUser(userId, {
           title: "Attendance Marked",
@@ -869,6 +913,28 @@ export const CampaignsController = {
                 pointsEarned: donationCompleted ? 10 : 5,
               },
             });
+            // Create immediate DONATION_ELIGIBLE notification
+            try {
+              await prisma.notification.create({
+                data: {
+                  userId: attendee.userId,
+                  type: "DONATION_ELIGIBLE",
+                  title: "QR scanned",
+                  message:
+                    "Your attendance has been verified. You can now proceed with the donation form.",
+                  isRead: false,
+                  metadata: {
+                    campaignId,
+                    scannedAt: new Date().toISOString(),
+                  },
+                },
+              });
+            } catch (e) {
+              console.error(
+                `Failed to create DONATION_ELIGIBLE notification (manual-attendance update for ${attendee.userId}):`,
+                e
+              );
+            }
             results.push({ success: true, userId: attendee.userId, participation: updated });
           } else {
             // Auto-register on-site and mark attendance
@@ -882,6 +948,28 @@ export const CampaignsController = {
                 pointsEarned: donationCompleted ? 10 : 5,
               },
             });
+            // Create immediate DONATION_ELIGIBLE notification
+            try {
+              await prisma.notification.create({
+                data: {
+                  userId: attendee.userId,
+                  type: "DONATION_ELIGIBLE",
+                  title: "QR scanned",
+                  message:
+                    "Your attendance has been verified. You can now proceed with the donation form.",
+                  isRead: false,
+                  metadata: {
+                    campaignId,
+                    scannedAt: new Date().toISOString(),
+                  },
+                },
+              });
+            } catch (e) {
+              console.error(
+                `Failed to create DONATION_ELIGIBLE notification (manual-attendance create for ${attendee.userId}):`,
+                e
+              );
+            }
             results.push({ success: true, userId: attendee.userId, participation, autoRegistered: true });
           }
         } catch (err) {
