@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { UserService } from "../services/user.service.js";
 import { CreateOrLoginUserRequest, ProfileCompletionRequest } from "../types/user.types.js";
 import { AuthenticatedRequest } from "../types/auth.types.js";
-import { PrismaClient, ActivityType, BloodGroup, District, Prisma } from "@prisma/client";
+import { PrismaClient, ActivityType, BloodGroup, District, Prisma, NotificationType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -716,7 +716,11 @@ export const UserController = {
   getNotifications: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const userId = req.user?.id;
-      const { limit = "10" } = req.query;
+      const { limit = "10", type, isRead } = req.query as {
+        limit?: string;
+        type?: string;
+        isRead?: string;
+      };
 
       if (!userId) {
         res.status(401).json({
@@ -727,16 +731,39 @@ export const UserController = {
         return;
       }
 
-      const limitNum = parseInt(limit as string);
+      const limitNum = Math.max(1, parseInt(limit as string));
 
-      const notifications = await prisma.notification.findMany({
-        where: { userId },
-        orderBy: { createdAt: "desc" },
-        take: limitNum,
-      });
+      const where: Prisma.NotificationWhereInput = { userId } as Prisma.NotificationWhereInput;
+      if (type) {
+        // Cast only if matches known enum value
+        where.type = type as unknown as NotificationType;
+      }
+      if (typeof isRead === "string") {
+        if (isRead === "true") where.isRead = true;
+        if (isRead === "false") where.isRead = false;
+      }
+
+      const [notifications, unreadCount] = await Promise.all([
+        prisma.notification.findMany({
+          where,
+          orderBy: { createdAt: "desc" },
+          take: limitNum,
+          select: {
+            id: true,
+            type: true,
+            title: true,
+            message: true,
+            isRead: true,
+            createdAt: true,
+            metadata: true,
+          },
+        }),
+        prisma.notification.count({ where: { userId, isRead: false } }),
+      ]);
 
       res.status(200).json({
-        data: { notifications },
+        notifications,
+        unreadCount,
       });
     } catch (error) {
       console.error("Error in getNotifications:", error);

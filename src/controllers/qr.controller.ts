@@ -178,6 +178,29 @@ export const QRController = {
 
         scanResult.participationUpdated = true;
         scanResult.participationId = participation.id;
+
+        // Immediately create a DONATION_ELIGIBLE notification for the scanned donor
+        try {
+          await prisma.notification.create({
+            data: {
+              userId: scannedUserId,
+              type: "DONATION_ELIGIBLE",
+              title: "QR scanned",
+              message:
+                "Your attendance has been verified. You can now proceed with the donation form.",
+              isRead: false,
+              metadata: {
+                campaignId,
+                scannedAt: new Date().toISOString(),
+              },
+            },
+          });
+        } catch (e) {
+          console.error(
+            "Failed to create DONATION_ELIGIBLE notification (scanQR flow):",
+            e
+          );
+        }
       }
 
       // Create activity for scanned user
@@ -429,6 +452,26 @@ export const QRController = {
         } catch {
           // ignore
         }
+      }
+
+      // Immediately create a DONATION_ELIGIBLE notification for the scanned donor
+      try {
+        await prisma.notification.create({
+          data: {
+            userId: scannedUserId,
+            type: "DONATION_ELIGIBLE",
+            title: "QR scanned",
+            message:
+              "Your attendance has been verified. You can now proceed with the donation form.",
+            isRead: false,
+            metadata: {
+              campaignId,
+              scannedAt: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (e) {
+        console.error("Failed to create DONATION_ELIGIBLE notification (QR flow):", e);
       }
 
       // Side effects: push notification + SSE to donor
