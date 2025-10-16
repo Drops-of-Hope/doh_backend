@@ -10,6 +10,9 @@ router.get("/", CampaignsController.getCampaigns);
 // GET /campaigns/upcoming
 router.get("/upcoming", CampaignsController.getUpcomingCampaigns);
 
+// GET /campaigns/pending - Get campaigns pending approval
+router.get("/pending", CampaignsController.getPendingCampaigns);
+
 // GET /campaigns/:id - Get single campaign details
 router.get("/:id", CampaignsController.getCampaignDetails);
 

@@ -1,5 +1,5 @@
 import { prisma } from '../config/db.js';
-import { Prisma } from '@prisma/client';
+import { Prisma, ApprovalStatus } from '@prisma/client';
 
 interface CampaignFilters {
   status?: string;
@@ -96,7 +96,7 @@ export const CampaignRepository = {
     const where: Prisma.CampaignWhereInput = {
       isActive: true,
       startTime: { gte: new Date() },
-      isApproved: true,
+      isApproved: ApprovalStatus.ACCEPTED as unknown as Prisma.EnumApprovalStatusFilter,
     };
 
     if (featured === "true") {
@@ -171,6 +171,73 @@ export const CampaignRepository = {
 
     return {
       campaigns,
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  },
+
+  // Find campaigns pending approval
+  findPending: async (params: { page?: number; limit?: number } = {}) => {
+    const { page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CampaignWhereInput = {
+      isApproved: ApprovalStatus.PENDING as unknown as Prisma.EnumApprovalStatusFilter,
+    } as Prisma.CampaignWhereInput;
+
+    const [campaigns, totalCount] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          medicalEstablishment: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
+          _count: {
+            select: { participations: true },
+          },
+        },
+      }),
+      prisma.campaign.count({ where }),
+    ]);
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        location: campaign.location,
+        expectedDonors: campaign.expectedDonors,
+        contactPersonName: campaign.contactPersonName,
+        contactPersonPhone: campaign.contactPersonPhone,
+        requirements: campaign.requirements,
+        isApproved: campaign.isApproved,
+        isActive: campaign.isActive,
+        organizer: campaign.organizer,
+        medicalEstablishment: campaign.medicalEstablishment,
+        participantsCount: campaign._count.participations,
+        createdAt: campaign.createdAt,
+        updatedAt: campaign.updatedAt,
+      })),
       pagination: {
         page,
         limit,
@@ -543,12 +610,13 @@ export const CampaignRepository = {
 
   // Update campaign status
   updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: boolean }) => {
+    // Cast data to any to tolerate schema enum vs boolean inconsistencies in the codebase
     return await prisma.campaign.update({
       where: { id: campaignId },
-      data: {
+      data: ({
         ...statusData,
         updatedAt: new Date(),
-      },
+      } as unknown as Prisma.CampaignUpdateInput),
       include: {
         organizer: {
           select: {

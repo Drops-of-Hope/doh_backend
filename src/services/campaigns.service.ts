@@ -1,4 +1,4 @@
-import { Prisma, CampaignType } from '@prisma/client';
+import { Prisma, CampaignType, ApprovalStatus } from '@prisma/client';
 import { CampaignRepository } from '../repositories/campaigns.repository.js';
 import { NotificationService } from './notification.service.js';
 
@@ -144,7 +144,7 @@ export const CampaignService = {
         contactPersonName: campaignData.contactPersonName,
         contactPersonPhone: campaignData.contactPersonPhone,
         requirements: campaignData.requirements,
-        isApproved: false, // Requires approval
+    isApproved: ApprovalStatus.PENDING as unknown as Prisma.InputJsonValue, // Requires approval
         organizer: { connect: { id: organizerId } },
         medicalEstablishment: { connect: { id: campaignData.medicalEstablishmentId } },
       });
@@ -169,7 +169,7 @@ export const CampaignService = {
         throw new Error(permissions.reasons?.[0] || 'Cannot edit this campaign');
       }
 
-      const campaign = await CampaignRepository.update(campaignId, updateData);
+  const campaign = await CampaignRepository.update(campaignId, updateData as unknown as Prisma.CampaignUpdateInput);
 
       return {
         success: true,
@@ -369,6 +369,35 @@ export const CampaignService = {
     } catch (error) {
       console.error('Get attendance service error:', error);
       throw new Error('Failed to fetch campaign attendance');
+    }
+  },
+
+  // Get pending campaigns (awaiting approval)
+  getPendingCampaigns: async (filters: { page?: number; limit?: number }) => {
+    try {
+      const pending = await CampaignRepository.findPending(filters);
+      if (!pending) {
+        return {
+          success: true,
+          data: {
+            campaigns: [],
+            pagination: {
+              page: filters.page || 1,
+              limit: filters.limit || 10,
+              total: 0,
+              totalPages: 0,
+            },
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: pending,
+      };
+    } catch (error) {
+      console.error('Get pending campaigns service error:', error);
+      throw new Error('Failed to fetch pending campaigns');
     }
   },
 

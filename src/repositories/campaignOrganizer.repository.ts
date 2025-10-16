@@ -1,6 +1,6 @@
 import { prisma } from '../config/db.js';
 import { CreateCampaignRequest, CampaignStatsResponse, MarkAttendanceRequest } from '../types/campaignOrganizer.types.js';
-import { Prisma } from '@prisma/client';
+import { Prisma, ApprovalStatus } from '@prisma/client';
 
 export const CampaignOrganizerRepository = {
   // Get campaigns by organizer
@@ -13,9 +13,9 @@ export const CampaignOrganizerRepository = {
     if (status) {
       if (status === 'active') {
         where.isActive = true;
-        where.isApproved = true;
+  where.isApproved = ApprovalStatus.ACCEPTED as unknown as Prisma.EnumApprovalStatusFilter;
       } else if (status === 'pending') {
-        where.isApproved = false;
+  where.isApproved = ApprovalStatus.PENDING as unknown as Prisma.EnumApprovalStatusFilter;
       } else if (status === 'inactive') {
         where.isActive = false;
       }
@@ -93,7 +93,7 @@ export const CampaignOrganizerRepository = {
         expectedDonors: data.targetDonors,
         contactPersonName: 'Organizer', // Default
         contactPersonPhone: data.contactInfo,
-        isApproved: false, // Needs approval
+  isApproved: ApprovalStatus.PENDING,
         isActive: true,
         requirements: data.requirements ? { requirements: data.requirements } : undefined,
         medicalEstablishmentId: '1', // Default establishment ID - should be dynamic
@@ -298,11 +298,11 @@ export const CampaignOrganizerRepository = {
 
     switch (status.toLowerCase()) {
       case 'approved':
-        updateData.isApproved = true;
+        updateData.isApproved = ApprovalStatus.ACCEPTED;
         updateData.isActive = true;
         break;
       case 'rejected':
-        updateData.isApproved = false;
+        updateData.isApproved = ApprovalStatus.CANCELLED;
         updateData.isActive = false;
         break;
       case 'suspended':
@@ -310,7 +310,7 @@ export const CampaignOrganizerRepository = {
         break;
       case 'active':
         updateData.isActive = true;
-        updateData.isApproved = true;
+        updateData.isApproved = ApprovalStatus.ACCEPTED;
         break;
     }
 

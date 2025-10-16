@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient, ParticipationStatus } from "@prisma/client";
+import { PrismaClient, ParticipationStatus, Prisma, ApprovalStatus } from "@prisma/client";
 import { CampaignWhereClause } from "../types/campaign.types.js";
 import { CampaignService } from "../services/campaigns.service.js";
 import { QRScanResultType, ScanQRRequest, MarkAttendanceQRRequest } from "../types/qr.types.js";
@@ -70,7 +70,7 @@ export const CampaignsController = {
         // Fallback to direct Prisma query
         const [campaignResults, count] = await Promise.all([
           prisma.campaign.findMany({
-            where,
+            where: where as unknown as Prisma.CampaignWhereInput,
             include: {
               medicalEstablishment: true,
               organizer: {
@@ -90,7 +90,7 @@ export const CampaignsController = {
             skip,
             take: limitNum,
           }),
-          prisma.campaign.count({ where }),
+          prisma.campaign.count({ where: where as unknown as Prisma.CampaignWhereInput }),
         ]);
 
         campaigns = campaignResults.map(campaign => ({
@@ -192,12 +192,12 @@ export const CampaignsController = {
         const where = {
           isActive: true,
           startTime: { gte: new Date() },
-          isApproved: true,
+    isApproved: 'ACCEPTED',
           ...(featured === "true" && { expectedDonors: { gte: 50 } }),
         };
 
         const campaignResults = await prisma.campaign.findMany({
-          where,
+          where: where as unknown as Prisma.CampaignWhereInput,
           include: {
             medicalEstablishment: true,
             organizer: {
@@ -354,6 +354,37 @@ export const CampaignsController = {
     }
   },
 
+  // GET /campaigns/pending - Get campaigns pending approval (admin/organizer)
+  getPendingCampaigns: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { page = "1", limit = "10" } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+
+      if (isNaN(pageNum) || pageNum <= 0 || isNaN(limitNum) || limitNum <= 0) {
+        res.status(400).json({ success: false, error: "Invalid pagination parameters", campaigns: [], data: { campaigns: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0 } } });
+        return;
+      }
+
+      const result = await CampaignService.getPendingCampaigns({ page: pageNum, limit: limitNum });
+
+      const campaigns = result.data?.campaigns || [];
+      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+
+      res.status(200).json({
+        success: true,
+        campaigns,
+        data: {
+          campaigns,
+          pagination,
+        },
+      });
+    } catch (error) {
+      console.error("Get pending campaigns error:", error);
+      res.status(500).json({ success: false, error: "Internal server error", campaigns: [], data: { campaigns: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0 } } });
+    }
+  },
+
   // GET /campaigns/organizer/:organizerId
   getCampaignsByOrganizer: async (req: Request, res: Response): Promise<void> => {
     try {
@@ -484,7 +515,7 @@ export const CampaignsController = {
           contactPersonPhone,
           medicalEstablishmentId,
           organizerId: req.user?.id || '',
-          isApproved: false, // Requires approval
+    isApproved: ApprovalStatus.PENDING,
           requirements: requirements || {},
         },
         include: {
@@ -832,7 +863,7 @@ export const CampaignsController = {
         select: {
           organizerId: true,
           startTime: true,
-          isApproved: true,
+          isApproved: ApprovalStatus.ACCEPTED,
           _count: {
             select: {
               participations: true,
