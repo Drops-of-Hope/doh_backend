@@ -1,19 +1,10 @@
 import { Request, Response } from "express";
 import { UserService } from "../services/user.service.js";
 import { CreateOrLoginUserRequest, ProfileCompletionRequest } from "../types/user.types.js";
+import { AuthenticatedRequest } from "../types/auth.types.js";
 import { PrismaClient, ActivityType, BloodGroup, District, Prisma } from "@prisma/client";
 
 const prisma = new PrismaClient();
-
-interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    name: string;
-    bloodGroup?: string;
-    nic?: string;
-  };
-}
 
 export const UserController = {
   // POST /api/users/create-or-login
@@ -76,6 +67,67 @@ export const UserController = {
       res.status(200).json(result);
     } catch (error) {
       console.error("Error in completeProfile:", error);
+      
+      // Handle specific case where user doesn't exist
+      if (error instanceof Error && error.message.includes("not found")) {
+        res.status(404).json({
+          message: "User not found",
+          error: error.message,
+          suggestion: "Please login again to create your account",
+        });
+        return;
+      }
+      
+      res.status(500).json({
+        message: "Failed to complete profile",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  // POST /api/users/complete-profile-auth (authenticated version)
+  completeProfileAuthenticated: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const profileData = req.body;
+      const authenticatedUser = req.user;
+
+      if (!authenticatedUser) {
+        res.status(401).json({
+          message: "Authentication required",
+        });
+        return;
+      }
+
+      // Enhance profile data with authenticated user information
+      const enhancedProfileData: ProfileCompletionRequest = {
+        userId: authenticatedUser.id,
+        email: authenticatedUser.email,
+        name: authenticatedUser.name,
+        ...profileData,
+      };
+
+      // Validate required fields
+      if (!enhancedProfileData.nic || !enhancedProfileData.bloodGroup || 
+          !enhancedProfileData.address || !enhancedProfileData.city || !enhancedProfileData.district) {
+        res.status(400).json({
+          message: "Missing required fields: nic, bloodGroup, address, city, and district are required",
+        });
+        return;
+      }
+
+      // Validate NIC format (basic Sri Lankan NIC validation)
+      const nicRegex = /^([0-9]{9}[vVxX]|[0-9]{12})$/;
+      if (!nicRegex.test(enhancedProfileData.nic)) {
+        res.status(400).json({
+          message: "Invalid NIC format",
+        });
+        return;
+      }
+
+      const result = await UserService.completeProfile(enhancedProfileData);
+      res.status(200).json(result);
+    } catch (error) {
+      console.error("Error in completeProfileAuthenticated:", error);
       res.status(500).json({
         message: "Failed to complete profile",
         error: error instanceof Error ? error.message : "Unknown error",

@@ -1,0 +1,80 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Typecheck and Lint",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint",
+			"problemMatcher": [
+				"$tsc",
+				"$eslint - stylish"
+			]
+		},
+		{
+			"label": "Typecheck and Lint",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint",
+			"problemMatcher": [
+				"$tsc",
+				"$eslint - stylish"
+			]
+		},
+		{
+			"label": "Typecheck and Lint",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint",
+			"problemMatcher": [
+				"$tsc",
+				"$eslint - stylish"
+			]
+		},
+		{
+			"label": "Build HomeController changes",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint",
+			"problemMatcher": [
+				"$tsc",
+				"$eslint - stylish"
+			]
+		},
+		{
+			"label": "Run getUserTotals script",
+			"type": "shell",
+			"command": "npx tsx src/scripts/getUserTotals.ts 4bdb8891-739a-4c48-a888-b833fb30743a",
+			"problemMatcher": []
+		},
+		{
+			"label": "Build after QR parse update",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint",
+			"problemMatcher": [
+				"$tsc",
+				"$eslint - stylish"
+			]
+		},
+		{
+			"label": "Build after actualDonors increments",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint",
+			"problemMatcher": [
+				"$tsc",
+				"$eslint - stylish"
+			]
+		},
+		{
+			"label": "Typecheck and Lint (ad-hoc)",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint"
+		},
+		{
+			"label": "Typecheck and Lint",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint"
+		},
+		{
+			"label": "Build after push+sse integration",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint"
+		}
+	]
+}

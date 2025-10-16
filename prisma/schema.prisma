@@ -33,14 +33,14 @@ model User {
   emergencyRequests      EmergencyRequest[]
   EquipmentAssignment    EquipmentAssignment[]
   feedbacks              Feedback[]
-  HealthVital            HealthVital[]
+  healthVitals           HealthVital[]
   MaintenanceLog         MaintenanceLog[]
   notifications          Notification[]
   qrScans                QRScan[]
   StaffAssignment        StaffAssignment[]
   userDetails            UserDetail?
   homeStats              UserHomeStats?
-  healthVitals HealthVital[]
+  devicePushTokens       DevicePushToken[]
 }
 
 model UserDetail {
@@ -94,6 +94,18 @@ model Notification {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
   user      User             @relation(fields: [userId], references: [id])
+}
+
+model DevicePushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  platform  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model CampaignParticipation {
@@ -214,16 +226,15 @@ model BloodDonationForm {
 }
 
 model HealthVital {
-  id             String      @id @default(uuid())
-  userId         String
-  appointmentId  String?     @unique
-  weight         Float
-  bp             Float
-  cvsPulse       Float
-  dateTime       DateTime    @default(now())
-
-  user           User        @relation(fields: [userId], references: [id])
-  appointment    Appointment? @relation(fields: [appointmentId], references: [id])
+  id            String       @id @default(uuid())
+  userId        String
+  appointmentId String?      @unique
+  weight        Float
+  bp            Float
+  cvsPulse      Float
+  dateTime      DateTime     @default(now())
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  user          User         @relation(fields: [userId], references: [id])
 }
 
 model BloodDonation {
@@ -271,7 +282,6 @@ model Campaign {
   expectedDonors         Int
   contactPersonName      String
   contactPersonPhone     String
-  isApproved             Boolean
   medicalEstablishmentId String
   bloodbankId            String?
   actualDonors           Int                     @default(0)
@@ -280,6 +290,7 @@ model Campaign {
   isActive               Boolean                 @default(true)
   requirements           Json?
   updatedAt              DateTime                @updatedAt
+  isApproved             ApprovalStatus          @default(PENDING)
   bloodBank              BloodBank?              @relation(fields: [bloodbankId], references: [id])
   medicalEstablishment   MedicalEstablishment    @relation(fields: [medicalEstablishmentId], references: [id])
   organizer              User                    @relation(fields: [organizerId], references: [id])
@@ -302,7 +313,7 @@ model Appointment {
   slot                   AppointmentSlot      @relation(fields: [slotId], references: [id])
   bloodDonationForms     BloodDonationForm[]
   bloodTests             BloodTest[]
-  healthVital  HealthVital?
+  healthVital            HealthVital?
 }
 
 model Inventory {
@@ -515,18 +526,6 @@ model Dummy {
   dummyName String
 }
 
-model HealthVital {
-  id            String       @id
-  userId        String
-  appointmentId String?      @unique
-  weight        Float
-  bp            Float
-  cvsPulse      Float
-  dateTime      DateTime     @default(now())
-  Appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  User          User         @relation(fields: [userId], references: [id])
-}
-
 enum BloodGroup {
   A_POSITIVE
   A_NEGATIVE
@@ -689,4 +688,10 @@ enum District {
 enum EquipmentType {
   CENTRIFUGE
   REFRIGERATOR
+}
+
+enum ApprovalStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
 }

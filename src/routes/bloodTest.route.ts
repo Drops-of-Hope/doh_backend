@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { BloodTestController } from "../controllers/bloodTest.controller";
+import { BloodTestController } from "../controllers/bloodTest.controller.js";
 
 const router = Router();
 

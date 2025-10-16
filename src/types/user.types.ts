@@ -35,6 +35,9 @@ export interface ProfileCompletionRequest {
   district: District;
   phoneNumber?: string;
   emergencyContact?: string;
+  // Optional fields for user creation if user doesn't exist
+  email?: string;
+  name?: string;
 }
 
 // User response for frontend

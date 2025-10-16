@@ -29,8 +29,8 @@ router.post(
 // Get appointment by ID
 router.get("/:appointmentId", AppointmentsController.getAppointment);
 
-// Get User appointments (legacy - potential conflict with appointmentId route)
-// router.get("/:userId", AppointmentsController.getUserAppointments);
+// Get User appointments with optional status filtering
+router.get("/user/:userId", AppointmentsController.getUserAppointments);
 
 // Get appointments by medical establishment ID
 router.get("/medicalEstablishment/:medicalEstablishmentId", AppointmentsController.getAppointmentsByMedicalEstablishment);
