@@ -62,15 +62,40 @@ export const UserRepository = {
   // Complete user profile
   completeProfile: async (profileData: ProfileCompletionRequest): Promise<User> => {
     return await prisma.$transaction(async (tx) => {
-      // Update user with NIC and blood group
-      await tx.user.update({
+      // First, check if the user exists
+      let existingUser = await tx.user.findUnique({
         where: { id: profileData.userId },
-        data: {
-          nic: profileData.nic,
-          bloodGroup: profileData.bloodGroup,
-          updatedAt: new Date(),
-        },
       });
+
+      if (!existingUser) {
+        // If user doesn't exist and we have email/name, create the user
+        if (profileData.email && profileData.name) {
+          console.log(`Creating new user with ID: ${profileData.userId}`);
+          existingUser = await tx.user.create({
+            data: {
+              id: profileData.userId,
+              email: profileData.email,
+              name: profileData.name,
+              nic: profileData.nic,
+              bloodGroup: profileData.bloodGroup,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          });
+        } else {
+          throw new Error(`User with ID ${profileData.userId} not found. Please login again to create your account.`);
+        }
+      } else {
+        // Update existing user with NIC and blood group
+        await tx.user.update({
+          where: { id: profileData.userId },
+          data: {
+            nic: profileData.nic,
+            bloodGroup: profileData.bloodGroup,
+            updatedAt: new Date(),
+          },
+        });
+      }
 
       // Determine user type based on existing roles or default to DONOR
       const userType: UserType = "DONOR";

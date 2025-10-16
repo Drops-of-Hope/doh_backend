@@ -30,21 +30,59 @@ export const MedicalEstablishmentsRepository = {
     
   //   return upcomingDates;
   // },
-  //needs to check if date is valid, isAvailable true slots,
-  getAvailableSlots: async (establishmentId: string) => {
-    const availableSlots = await prisma.appointmentSlot.findMany({
+  // Get available slots for a specific date and establishment
+  getAvailableSlots: async (establishmentId: string, date?: string) => {
+    console.log(`Getting available slots for establishment ${establishmentId} on date ${date}`);
+    
+    const slots = await prisma.appointmentSlot.findMany({
       where: {
         medicalEstablishmentId: establishmentId,
         isAvailable: true,
-      }
+      },
+      include: {
+        appointments: date ? {
+          where: {
+            appointmentDate: {
+              gte: new Date(date + 'T00:00:00.000Z'),
+              lt: new Date(date + 'T23:59:59.999Z'),
+            },
+          },
+        } : false,
+      },
     });
-    // Note: The current schema stores startTime/endTime as strings (HH:MM format)
-    // without date components. As a result, getAvailableSlots cannot filter slots by date,
-    // and will return all available slots for the given establishment regardless of date.
-    // To support date filtering, the schema should be updated to use DateTime fields or add
-    // a separate date field, and this function should be modified to accept a date parameter
-    // and filter slots accordingly.
-    return availableSlots;
+
+    console.log(`Found ${slots.length} total slots for establishment`);
+
+    // Filter slots based on date-specific availability
+    if (date) {
+      const availableSlots = slots.filter(slot => {
+        const appointmentsOnDate = slot.appointments?.length || 0;
+        const isAvailable = appointmentsOnDate < slot.donorsPerSlot;
+        console.log(`Slot ${slot.id} (${slot.startTime}-${slot.endTime}): ${appointmentsOnDate}/${slot.donorsPerSlot} booked, available: ${isAvailable}`);
+        return isAvailable;
+      }).map(slot => ({
+        id: slot.id,
+        startTime: slot.startTime,
+        endTime: slot.endTime,
+        donorsPerSlot: slot.donorsPerSlot,
+        isAvailable: slot.isAvailable,
+        medicalEstablishmentId: slot.medicalEstablishmentId,
+        availableCapacity: slot.donorsPerSlot - (slot.appointments?.length || 0),
+      }));
+      
+      console.log(`Returning ${availableSlots.length} available slots for date ${date}`);
+      return availableSlots;
+    }
+
+    // Return all available slots if no date specified (backward compatibility)
+    return slots.map(slot => ({
+      id: slot.id,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+      donorsPerSlot: slot.donorsPerSlot,
+      isAvailable: slot.isAvailable,
+      medicalEstablishmentId: slot.medicalEstablishmentId,
+    }));
   },
 
   getInventoryByEstablishmentId: async (establishmentId: string) => {

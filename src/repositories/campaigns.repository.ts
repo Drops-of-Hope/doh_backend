@@ -1,5 +1,5 @@
 import { prisma } from '../config/db.js';
-import { Prisma } from '@prisma/client';
+import { Prisma, ApprovalStatus } from '@prisma/client';
 
 interface CampaignFilters {
   status?: string;
@@ -26,6 +26,7 @@ export const CampaignRepository = {
     if (status === "active") {
       where.isActive = true;
       where.startTime = { gte: new Date() };
+      where.isApproved = ApprovalStatus.ACCEPTED;
     }
 
     if (featured === "true") {
@@ -96,7 +97,7 @@ export const CampaignRepository = {
     const where: Prisma.CampaignWhereInput = {
       isActive: true,
       startTime: { gte: new Date() },
-      isApproved: true,
+      isApproved: ApprovalStatus.ACCEPTED,
     };
 
     if (featured === "true") {
@@ -473,15 +474,44 @@ export const CampaignRepository = {
 
   // Mark attendance
   markAttendance: async (campaignId: string, userId: string, donationCompleted = false) => {
-    const participation = await prisma.campaignParticipation.findFirst({
+    let participation = await prisma.campaignParticipation.findFirst({
       where: {
         campaignId,
         userId,
       },
     });
 
+    // Auto-register user if not already participating (live campaign walk-in)
     if (!participation) {
-      throw new Error('Participation not found');
+      participation = await prisma.campaignParticipation.create({
+        data: {
+          campaignId,
+          userId,
+          // Directly mark as attended/complete as this is an on-site registration
+          attendanceMarked: true,
+          donationCompleted,
+          status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+          pointsEarned: donationCompleted ? 10 : 5,
+        },
+      });
+
+      // Record activity to indicate user was auto-registered at the campaign
+      try {
+        const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+        await prisma.activity.create({
+          data: {
+            userId,
+            type: 'CAMPAIGN_JOINED',
+            title: 'Joined Campaign (On-site)',
+            description: campaign ? `Registered on-site for campaign: ${campaign.title}` : 'Registered on-site for campaign',
+            metadata: { campaignId },
+          },
+        });
+      } catch {
+        // best effort; ignore failures
+      }
+
+      return participation;
     }
 
     return await prisma.campaignParticipation.update({
@@ -542,7 +572,7 @@ export const CampaignRepository = {
   },
 
   // Update campaign status
-  updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: boolean }) => {
+  updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: ApprovalStatus }) => {
     return await prisma.campaign.update({
       where: { id: campaignId },
       data: {
@@ -566,26 +596,55 @@ export const CampaignRepository = {
 
     for (const attendee of attendees) {
       try {
-        const participation = await prisma.campaignParticipation.findFirst({
+        let participation = await prisma.campaignParticipation.findFirst({
           where: {
             campaignId,
             userId: attendee.userId,
           },
         });
 
-        if (participation) {
+        const donationCompleted = attendee.donationCompleted || false;
+        if (!participation) {
+          // Auto-register and mark attendance in one go
+          participation = await prisma.campaignParticipation.create({
+            data: {
+              campaignId,
+              userId: attendee.userId,
+              attendanceMarked: true,
+              donationCompleted,
+              status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+              pointsEarned: donationCompleted ? 10 : 5,
+            },
+          });
+
+          // Best-effort activity log
+          try {
+            const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
+            await prisma.activity.create({
+              data: {
+                userId: attendee.userId,
+                type: 'CAMPAIGN_JOINED',
+                title: 'Joined Campaign (On-site)',
+                description: campaign ? `Registered on-site for campaign: ${campaign.title}` : 'Registered on-site for campaign',
+                metadata: { campaignId },
+              },
+            });
+          } catch {
+            // ignore activity log failure
+          }
+
+          results.push({ success: true, userId: attendee.userId, participation });
+        } else {
           const updated = await prisma.campaignParticipation.update({
             where: { id: participation.id },
             data: {
               attendanceMarked: true,
-              donationCompleted: attendee.donationCompleted || false,
-              status: attendee.donationCompleted ? 'COMPLETED' : 'ATTENDED',
-              pointsEarned: attendee.donationCompleted ? 10 : 5,
+              donationCompleted,
+              status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+              pointsEarned: donationCompleted ? 10 : 5,
             },
           });
           results.push({ success: true, userId: attendee.userId, participation: updated });
-        } else {
-          results.push({ success: false, userId: attendee.userId, error: 'Participation not found' });
         }
       } catch (error) {
         console.error(`Error updating attendance for user ${attendee.userId}:`, error);
