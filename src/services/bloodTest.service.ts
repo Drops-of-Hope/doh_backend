@@ -152,4 +152,17 @@ export const BloodTestService = {
       throw new Error("Failed to update hemoglobin");
     }
   },
+
+  // Mark both the bloodTest record and the blood record as SAFE
+  async markAsSafe(bloodId: string) {
+    try {
+      if (!bloodId) throw new Error("Missing bloodId");
+
+      const result = await BloodTestRepository.markAsSafe(bloodId);
+      return result;
+    } catch (error) {
+      console.error("Error in BloodTestService.markAsSafe:", error);
+      throw new Error("Failed to mark blood unit as SAFE");
+    }
+  },
 };
