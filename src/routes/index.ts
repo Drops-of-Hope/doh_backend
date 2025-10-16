@@ -18,6 +18,7 @@ import healthVitalsRoutes from './heathVitals.route.js';
 import bloodDonationRoutes from './bloodDonation.route.js';
 import bloodRoutes from './blood.routes.js';
 import activitiesRoutes from "./activities.route.js";
+import bloodTestRoutes from "./bloodTest.route.js";
 
 const router = Router();
 
@@ -71,6 +72,9 @@ router.use("/health-vitals", healthVitalsRoutes);
 
 //route to add blood, donation info when a donor donates blood
 router.use("/blood-donation", bloodDonationRoutes);
+
+//route to handle blood testings
+router.use("/blood-test", bloodTestRoutes);
 
 // blood availability and related routes
 router.use("/blood", bloodRoutes);
