@@ -1,5 +1,5 @@
 import { prisma } from "../config/db.js";
-import { BloodGroup } from "@prisma/client";
+import { BloodGroup, Prisma } from "@prisma/client";
 
 export const BloodTestRepository = {
   // Get all blood tests pending for a specific inventory
@@ -160,8 +160,8 @@ export const BloodTestRepository = {
           hivTest,
           hemoglobin: 0,
           syphilis: null,
-          hepatitisB: false,
-          hepatitisC: false,
+          hepatitisB: null,
+          hepatitisC: null,
           malaria: false,
           resultPending: true,
         },
@@ -199,14 +199,193 @@ export const BloodTestRepository = {
           hivTest: null,
           hemoglobin: 0,
           syphilis,
-          hepatitisB: false,
-          hepatitisC: false,
+          hepatitisB: null,
+          hepatitisC: null,
           malaria: false,
           resultPending: true,
         },
         include: { blood: true },
       });
     }
+
+    return result;
+  },
+
+  // Update or create a BloodTest record's hepatitisB and/or hepatitisC fields for a given blood unit
+  async upsertHepatitisTest(
+    bloodId: string,
+    hepatitisB?: boolean,
+    hepatitisC?: boolean
+  ) {
+    const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
+
+    const data: Prisma.BloodTestUpdateInput = {
+      testDateTime: new Date(),
+      resultPending: true,
+    };
+
+    if (hepatitisB !== undefined) data.hepatitisB = hepatitisB;
+    if (hepatitisC !== undefined) data.hepatitisC = hepatitisC;
+
+    let result;
+
+    if (existing) {
+      result = await prisma.bloodTest.update({
+        where: { id: existing.id },
+        data,
+        include: { blood: true },
+      });
+    } else {
+      // Provide safe defaults for non-nullable fields when creating a new record
+      result = await prisma.bloodTest.create({
+        data: {
+          bloodId,
+          testDateTime: new Date(),
+          status: "PENDING",
+          ABOTest: "O_POSITIVE" as BloodGroup,
+          hivTest: null,
+          hemoglobin: 0,
+          syphilis: null,
+          hepatitisB: hepatitisB ?? false,
+          hepatitisC: hepatitisC ?? false,
+          malaria: false,
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    }
+    return result;
+  },
+
+  // Update or create a BloodTest record's malaria field for a given blood unit
+  async upsertMalariaTest(bloodId: string, malaria: boolean) {
+    const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
+
+    let result;
+
+    if (existing) {
+      result = await prisma.bloodTest.update({
+        where: { id: existing.id },
+        data: {
+          malaria,
+          testDateTime: new Date(),
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    } else {
+      // Provide safe defaults for non-nullable fields when creating a new record
+      result = await prisma.bloodTest.create({
+        data: {
+          bloodId,
+          testDateTime: new Date(),
+          status: "PENDING",
+          ABOTest: "O_POSITIVE" as BloodGroup,
+          hivTest: null,
+          hemoglobin: 0,
+          syphilis: null,
+          hepatitisB: null,
+          hepatitisC: null,
+          malaria,
+          resultPending: true,
+        },
+        include: { blood: true },
+      });
+    }
+
+    return result;
+  },
+
+  // Update or create a BloodTest record's hemoglobin value and mark results finalized
+  async upsertHemoglobin(bloodId: string, hemoglobin: number) {
+    const existing = await prisma.bloodTest.findFirst({ where: { bloodId } });
+
+    let result;
+
+    if (existing) {
+      // Update hemoglobin, timestamp, and mark resultPending false and status TESTED
+      result = await prisma.bloodTest.update({
+        where: { id: existing.id },
+        data: {
+          hemoglobin,
+          testDateTime: new Date(),
+          resultPending: false,
+          status: "TESTED",
+        },
+        include: { blood: true },
+      });
+    } else {
+      // Create a new BloodTest record with supplied hemoglobin and mark as TESTED
+      result = await prisma.bloodTest.create({
+        data: {
+          bloodId,
+          testDateTime: new Date(),
+          status: "TESTED",
+          ABOTest: "O_POSITIVE" as BloodGroup,
+          hivTest: null,
+          hemoglobin,
+          syphilis: null,
+          hepatitisB: null,
+          hepatitisC: null,
+          malaria: false,
+          resultPending: false,
+        },
+        include: { blood: true },
+      });
+    }
+
+    return result;
+  },
+
+  // Mark both the bloodTest record and the blood record as SAFE in a transaction
+  async markAsSafe(bloodId: string) {
+    // Use a transaction to ensure both updates succeed or both fail
+    const blood = await prisma.blood.findUnique({ where: { id: bloodId } });
+    if (!blood) return null;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Update or create bloodTest record
+      const existing = await tx.bloodTest.findFirst({ where: { bloodId } });
+
+      let bt;
+      if (existing) {
+        bt = await tx.bloodTest.update({
+          where: { id: existing.id },
+          data: {
+            status: "SAFE",
+            resultPending: false,
+            testDateTime: new Date(),
+          },
+          include: { blood: true },
+        });
+      } else {
+        // create a minimal bloodTest record marked SAFE
+        bt = await tx.bloodTest.create({
+          data: {
+            bloodId,
+            testDateTime: new Date(),
+            status: "SAFE",
+            ABOTest: "O_POSITIVE",
+            hivTest: null,
+            hemoglobin: 0,
+            syphilis: null,
+            hepatitisB: null,
+            hepatitisC: null,
+            malaria: false,
+            resultPending: false,
+          },
+          include: { blood: true },
+        });
+      }
+
+      // Update blood status
+      await tx.blood.update({
+        where: { id: bloodId },
+        data: { status: "SAFE" },
+      });
+
+      return bt;
+    });
 
     return result;
   },
