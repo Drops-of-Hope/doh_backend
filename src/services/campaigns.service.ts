@@ -316,6 +316,46 @@ export const CampaignService = {
     }
   },
 
+  // Set approval status for a campaign
+  setCampaignApproval: async (campaignId: string, approval: string, userId?: string) => {
+    try {
+      // Normalize approval value
+      const normalized = approval.toString().toUpperCase();
+
+      let statusValue;
+      if (normalized === 'ACCEPTED' || normalized === 'APPROVED') {
+        statusValue = ApprovalStatus.ACCEPTED;
+      } else if (normalized === 'REJECTED' || normalized === 'CANCELLED') {
+        statusValue = ApprovalStatus.CANCELLED;
+      } else {
+        return { success: false, statusCode: 400, error: 'Invalid approval value' };
+      }
+
+      // Update status via repository (repository.updateStatus accepts statusData)
+  const updated = await CampaignRepository.updateApproval(campaignId, statusValue);
+
+      // Optionally create activity/notification (best-effort)
+      try {
+        const actorId = userId || 'system';
+        const { ActivityService } = await import('../services/activity.service.js');
+        await ActivityService.createActivity({
+          userId: actorId,
+          type: (statusValue === ApprovalStatus.ACCEPTED ? 'CAMPAIGN_APPROVED' : 'CAMPAIGN_REJECTED') as unknown as never,
+          title: statusValue === ApprovalStatus.ACCEPTED ? 'Campaign Approved' : 'Campaign Rejected',
+          description: `Campaign ${updated.title} was ${statusValue.toLowerCase()} by ${actorId}`,
+          metadata: { campaignId, approval: statusValue },
+        });
+      } catch (actErr) {
+        console.warn('Activity creation failed:', actErr);
+      }
+
+      return { success: true, campaign: updated };
+    } catch (error) {
+      console.error('Set campaign approval service error:', error);
+      return { success: false, error: 'Failed to update campaign approval' };
+    }
+  },
+
   // Check campaign permissions
   checkCampaignPermissions: async (campaignId: string, userId: string) => {
     try {

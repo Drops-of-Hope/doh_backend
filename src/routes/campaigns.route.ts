@@ -49,6 +49,9 @@ router.get("/:campaignId/attendance", authenticateToken, CampaignsController.get
 // PATCH /campaigns/:campaignId/status - Update campaign status (admin)
 router.patch("/:campaignId/status", authenticateToken, CampaignsController.updateCampaignStatus);
 
+// PATCH /campaigns/:campaignId/approval - Approve or reject a campaign
+router.patch('/:campaignId/approval', CampaignsController.setCampaignApproval);
+
 // POST /campaigns/:campaignId/manual-attendance - Manual attendance marking
 router.post("/:campaignId/manual-attendance", authenticateToken, CampaignsController.manualAttendanceMarking);
 

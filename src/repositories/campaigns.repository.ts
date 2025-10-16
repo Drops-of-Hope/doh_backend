@@ -677,6 +677,21 @@ export const CampaignRepository = {
     });
   },
 
+  // Update approval status using ApprovalStatus enum
+  updateApproval: async (campaignId: string, approval: ApprovalStatus) => {
+    return await prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        isApproved: approval,
+        updatedAt: new Date(),
+      },
+      include: {
+        medicalEstablishment: true,
+        organizer: { select: { name: true, email: true } },
+      },
+    });
+  },
+
   // Bulk mark attendance
   bulkMarkAttendance: async (campaignId: string, attendees: Array<{ userId: string; donationCompleted?: boolean }>) => {
     const results = [];

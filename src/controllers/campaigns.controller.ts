@@ -815,6 +815,31 @@ export const CampaignsController = {
     }
   },
 
+  // PATCH /campaigns/:campaignId/approval
+  setCampaignApproval: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { campaignId } = req.params;
+      const { approval } = req.body; // expected 'ACCEPTED' or 'REJECTED' (or 'CANCELLED')
+
+      if (!campaignId || !approval) {
+        res.status(400).json({ success: false, error: 'campaignId and approval are required' });
+        return;
+      }
+
+  const result = await CampaignService.setCampaignApproval(campaignId, approval as string, (req as AuthenticatedRequest).user?.id);
+
+      if (!result.success) {
+        res.status(result.statusCode || 400).json({ success: false, error: result.error || 'Failed to set approval' });
+        return;
+      }
+
+      res.status(200).json({ success: true, campaign: result.campaign });
+    } catch (error) {
+      console.error('Set campaign approval error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
   // POST /campaigns/:campaignId/manual-attendance
   manualAttendanceMarking: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
