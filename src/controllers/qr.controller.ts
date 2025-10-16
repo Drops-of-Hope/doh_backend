@@ -282,7 +282,7 @@ export const QRController = {
       }
 
       // Find the campaign participation
-      const participation = await prisma.campaignParticipation.findFirst({
+      let participation = await prisma.campaignParticipation.findFirst({
         where: {
           campaignId,
           userId: scannedUserId,
@@ -304,12 +304,46 @@ export const QRController = {
       });
 
       if (!participation) {
-        res.status(404).json({
-          success: false,
-          error: "Participation not found",
-          message: "User is not registered for this campaign",
+        // Auto-register for live campaign walk-in and proceed to mark attendance
+        participation = await prisma.campaignParticipation.create({
+          data: {
+            campaignId,
+            userId: scannedUserId,
+            attendanceMarked: true,
+            qrCodeScanned: true,
+            scannedAt: new Date(),
+            scannedById: scannerId,
+            status: 'ATTENDED',
+            pointsEarned: 5,
+          },
+          include: {
+            user: {
+              select: {
+                name: true,
+                bloodGroup: true,
+                nic: true,
+              },
+            },
+            campaign: {
+              select: { title: true },
+            },
+          },
         });
-        return;
+
+        // Best-effort activity log
+        try {
+          await prisma.activity.create({
+            data: {
+              userId: scannedUserId,
+              type: 'CAMPAIGN_JOINED',
+              title: 'Joined Campaign (On-site)',
+              description: participation.campaign ? `Registered on-site for campaign: ${participation.campaign.title}` : 'Registered on-site for campaign',
+              metadata: { campaignId },
+            },
+          });
+        } catch {
+          // ignore
+        }
       }
 
       // Mark attendance via QR scan

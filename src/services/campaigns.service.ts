@@ -1,4 +1,4 @@
-import { Prisma, CampaignType } from '@prisma/client';
+import { Prisma, CampaignType, ApprovalStatus } from '@prisma/client';
 import { CampaignRepository } from '../repositories/campaigns.repository.js';
 import { NotificationService } from './notification.service.js';
 
@@ -21,7 +21,7 @@ interface UpdateCampaignData {
   contactPersonPhone?: string;
   requirements?: Prisma.InputJsonValue;
   isActive?: boolean;
-  isApproved?: boolean;
+  isApproved?: boolean | ApprovalStatus | string;
 }
 
 interface CreateCampaignData {
@@ -144,7 +144,7 @@ export const CampaignService = {
         contactPersonName: campaignData.contactPersonName,
         contactPersonPhone: campaignData.contactPersonPhone,
         requirements: campaignData.requirements,
-        isApproved: false, // Requires approval
+        isApproved: ApprovalStatus.PENDING, // Requires approval
         organizer: { connect: { id: organizerId } },
         medicalEstablishment: { connect: { id: campaignData.medicalEstablishmentId } },
       });
@@ -169,7 +169,20 @@ export const CampaignService = {
         throw new Error(permissions.reasons?.[0] || 'Cannot edit this campaign');
       }
 
-      const campaign = await CampaignRepository.update(campaignId, updateData);
+      // Map boolean/string to enum if present
+      const data: Prisma.CampaignUpdateInput = { ...updateData } as Prisma.CampaignUpdateInput;
+      if (updateData.isApproved !== undefined) {
+        let mapped: ApprovalStatus | undefined;
+        const v = updateData.isApproved;
+        if (typeof v === 'boolean') mapped = v ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+        else if (typeof v === 'string') {
+          const up = v.toUpperCase();
+          if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') mapped = up as ApprovalStatus;
+        }
+        if (mapped) data.isApproved = mapped;
+      }
+
+      const campaign = await CampaignRepository.update(campaignId, data);
 
       return {
         success: true,
@@ -373,9 +386,23 @@ export const CampaignService = {
   },
 
   // Update campaign status
-  updateCampaignStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: boolean }) => {
+  updateCampaignStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: boolean | ApprovalStatus | string }) => {
     try {
-      const campaign = await CampaignRepository.updateStatus(campaignId, statusData);
+      // Map isApproved to enum if provided
+      let mappedApproval: ApprovalStatus | undefined = undefined;
+      if (statusData.isApproved !== undefined) {
+        const v = statusData.isApproved;
+        if (typeof v === 'boolean') mappedApproval = v ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+        else if (typeof v === 'string') {
+          const up = v.toUpperCase();
+          if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') mappedApproval = up as ApprovalStatus;
+        } else mappedApproval = v;
+      }
+
+      const campaign = await CampaignRepository.updateStatus(campaignId, {
+        isActive: statusData.isActive,
+        isApproved: mappedApproval,
+      });
       
       return {
         success: true,

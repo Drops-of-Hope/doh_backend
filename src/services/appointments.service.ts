@@ -17,10 +17,10 @@ export const AppointmentsService = {
       throw new Error("Donor is not eligible to donate at this time");
     }
 
-    // 3. Check if slot is available
-    const isSlotAvailable = await AppointmentsRepository.checkSlotAvailability(slotId);
+    // 3. Check if slot is available for the specific date
+    const isSlotAvailable = await AppointmentsRepository.checkSlotAvailability(slotId, appointmentDate);
     if (!isSlotAvailable) {
-      throw new Error("Selected time slot is not available");
+      throw new Error("Selected time slot is not available for the chosen date");
     }
 
     // 4. Ensure medicalEstablishmentId is provided
@@ -45,11 +45,11 @@ export const AppointmentsService = {
   },
 
   // Get user's appointments by ID
-  getAppointmentsByUserId: async (userId: string) => {
+  getAppointmentsByUserId: async (userId: string, status?: string) => {
     if (!userId) {
       throw new Error("User ID is required");
     }
-    return await AppointmentsRepository.getAppointmentsByUserId(userId);
+    return await AppointmentsRepository.getAppointmentsByUserId(userId, status);
   },
 
   // Get all appointments for a medical establishment

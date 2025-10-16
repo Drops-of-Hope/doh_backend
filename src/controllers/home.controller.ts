@@ -15,7 +15,10 @@ interface AuthenticatedRequest extends Request {
 
 export const HomeController = {
   // GET /home/dashboard
-  getDashboard: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  getDashboard: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const userId = req.user?.id;
 
@@ -28,9 +31,15 @@ export const HomeController = {
         return;
       }
 
-      // Get user stats
+      // Get user stats (aggregated table)
       const userStats = await prisma.userHomeStats.findUnique({
         where: { userId },
+      });
+
+      // Also fetch the user's totals and nextEligible to compute current eligibility
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nextEligible: true, totalDonations: true, totalPoints: true },
       });
 
       // Get upcoming appointments
@@ -105,19 +114,36 @@ export const HomeController = {
         take: 10,
       });
 
+      const eligibleToDonateComputed = user?.nextEligible
+        ? user.nextEligible <= new Date()
+        : true;
+      const nextEligibleDateComputed =
+        user?.nextEligible ?? userStats?.nextEligibleDate ?? null;
+
       res.status(200).json({
         data: {
-          userStats: userStats || {
-            totalDonations: 0,
-            totalPoints: 0,
-            donationStreak: 0,
-            lastDonationDate: null,
-            eligibleToDonate: true,
-            nextEligibleDate: null,
-            nextAppointmentDate: upcomingAppointments[0]?.appointmentDate || null,
-            nextAppointmentId: upcomingAppointments[0]?.id || null,
-          },
-          upcomingAppointments: upcomingAppointments.map(apt => ({
+          userStats: userStats
+            ? {
+                ...userStats,
+                // Ensure totals and next donation date are sourced from User table
+                totalDonations:
+                  user?.totalDonations ?? userStats.totalDonations,
+                totalPoints: user?.totalPoints ?? userStats.totalPoints,
+                eligibleToDonate: eligibleToDonateComputed,
+                nextEligibleDate: nextEligibleDateComputed,
+              }
+            : {
+                totalDonations: user?.totalDonations ?? 0,
+                totalPoints: user?.totalPoints ?? 0,
+                donationStreak: 0,
+                lastDonationDate: null,
+                eligibleToDonate: eligibleToDonateComputed,
+                nextEligibleDate: nextEligibleDateComputed,
+                nextAppointmentDate:
+                  upcomingAppointments[0]?.appointmentDate || null,
+                nextAppointmentId: upcomingAppointments[0]?.id || null,
+              },
+          upcomingAppointments: upcomingAppointments.map((apt) => ({
             id: apt.id,
             donorId: apt.donorId,
             appointmentDateTime: apt.appointmentDate,
@@ -133,7 +159,7 @@ export const HomeController = {
             },
           })),
           recentActivities,
-          emergencies: emergencies.map(emergency => ({
+          emergencies: emergencies.map((emergency) => ({
             id: emergency.id,
             title: emergency.title,
             description: emergency.description,
@@ -149,7 +175,7 @@ export const HomeController = {
               district: emergency.hospital.district,
             },
           })),
-          featuredCampaigns: featuredCampaigns.map(campaign => ({
+          featuredCampaigns: featuredCampaigns.map((campaign) => ({
             id: campaign.id,
             title: campaign.title,
             type: campaign.type,
@@ -210,6 +236,12 @@ export const HomeController = {
         });
       }
 
+      // Also fetch the user's totals and nextEligible to compute eligibility
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nextEligible: true, totalDonations: true, totalPoints: true },
+      });
+
       // Get next appointment
       const nextAppointment = await prisma.appointment.findFirst({
         where: {
@@ -224,14 +256,20 @@ export const HomeController = {
         },
       });
 
+      const eligibleToDonateComputed = user?.nextEligible
+        ? user.nextEligible <= new Date()
+        : true;
+      const nextEligibleDateComputed =
+        user?.nextEligible ?? userStats.nextEligibleDate ?? null;
+
       res.status(200).json({
         data: {
-          totalDonations: userStats.totalDonations,
-          totalPoints: userStats.totalPoints,
+          totalDonations: user?.totalDonations ?? userStats.totalDonations,
+          totalPoints: user?.totalPoints ?? userStats.totalPoints,
           donationStreak: userStats.donationStreak,
           lastDonationDate: userStats.lastDonationDate,
-          eligibleToDonate: userStats.eligibleToDonate,
-          nextEligibleDate: userStats.nextEligibleDate,
+          eligibleToDonate: eligibleToDonateComputed,
+          nextEligibleDate: nextEligibleDateComputed,
           nextAppointmentDate: nextAppointment?.appointmentDate || null,
           nextAppointmentId: nextAppointment?.id || null,
         },
@@ -247,7 +285,10 @@ export const HomeController = {
   },
 
   // GET /home/data - Mobile app home screen data
-  getHomeData: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  getHomeData: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const userId = req.user?.id;
 
@@ -263,6 +304,12 @@ export const HomeController = {
       // Get user stats
       const userStats = await prisma.userHomeStats.findUnique({
         where: { userId },
+      });
+
+      // Also fetch the user's totals and nextEligible to compute current eligibility
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nextEligible: true, totalDonations: true, totalPoints: true },
       });
 
       // Get upcoming appointments
@@ -349,22 +396,38 @@ export const HomeController = {
         take: 5,
       });
 
+      const eligibleToDonateComputed = user?.nextEligible
+        ? user.nextEligible <= new Date()
+        : true;
+      const nextEligibleDateComputed =
+        user?.nextEligible ?? userStats?.nextEligibleDate ?? null;
+
       res.status(200).json({
         data: {
-          userStats: userStats || {
-            id: userId,
-            userId,
-            totalDonations: 0,
-            totalPoints: 0,
-            donationStreak: 0,
-            lastDonationDate: null,
-            eligibleToDonate: true,
-            nextEligibleDate: null,
-            nextAppointmentDate: upcomingAppointments[0]?.appointmentDate || null,
-            nextAppointmentId: upcomingAppointments[0]?.id || null,
-            lastUpdated: new Date().toISOString(),
-          },
-          upcomingAppointments: upcomingAppointments.map(apt => ({
+          userStats: userStats
+            ? {
+                ...userStats,
+                totalDonations:
+                  user?.totalDonations ?? userStats.totalDonations,
+                totalPoints: user?.totalPoints ?? userStats.totalPoints,
+                eligibleToDonate: eligibleToDonateComputed,
+                nextEligibleDate: nextEligibleDateComputed,
+              }
+            : {
+                id: userId,
+                userId,
+                totalDonations: user?.totalDonations ?? 0,
+                totalPoints: user?.totalPoints ?? 0,
+                donationStreak: 0,
+                lastDonationDate: null,
+                eligibleToDonate: eligibleToDonateComputed,
+                nextEligibleDate: nextEligibleDateComputed,
+                nextAppointmentDate:
+                  upcomingAppointments[0]?.appointmentDate || null,
+                nextAppointmentId: upcomingAppointments[0]?.id || null,
+                lastUpdated: new Date().toISOString(),
+              },
+          upcomingAppointments: upcomingAppointments.map((apt) => ({
             id: apt.id,
             donorId: apt.donorId,
             appointmentDateTime: apt.appointmentDate.toISOString(),
@@ -381,7 +444,7 @@ export const HomeController = {
               endTime: apt.slot?.endTime || "17:00",
             },
           })),
-          featuredCampaigns: featuredCampaigns.map(campaign => ({
+          featuredCampaigns: featuredCampaigns.map((campaign) => ({
             id: campaign.id,
             title: campaign.title,
             type: campaign.type,
@@ -400,7 +463,7 @@ export const HomeController = {
             medicalEstablishment: campaign.medicalEstablishment,
             participantCount: campaign._count.participations,
           })),
-          emergencies: emergencies.map(emergency => ({
+          emergencies: emergencies.map((emergency) => ({
             id: emergency.id,
             title: emergency.title,
             description: emergency.description,

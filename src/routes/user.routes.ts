@@ -10,6 +10,9 @@ router.post("/create-or-login", UserController.createOrLoginUser);
 // Complete user profile (after initial authentication)
 router.post("/complete-profile", UserController.completeProfile);
 
+// Complete user profile (authenticated version - creates user if needed)
+router.post("/complete-profile-auth", authenticateToken, UserController.completeProfileAuthenticated);
+
 // Check if user exists
 router.get("/exists/:userId", UserController.checkUserExists);
 

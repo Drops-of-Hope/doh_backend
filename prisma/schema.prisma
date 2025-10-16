@@ -269,7 +269,6 @@ model Campaign {
   expectedDonors         Int
   contactPersonName      String
   contactPersonPhone     String
-  isApproved             Boolean
   medicalEstablishmentId String
   bloodbankId            String?
   actualDonors           Int                     @default(0)
@@ -278,6 +277,7 @@ model Campaign {
   isActive               Boolean                 @default(true)
   requirements           Json?
   updatedAt              DateTime                @updatedAt
+  isApproved             ApprovalStatus          @default(PENDING)
   bloodBank              BloodBank?              @relation(fields: [bloodbankId], references: [id])
   medicalEstablishment   MedicalEstablishment    @relation(fields: [medicalEstablishmentId], references: [id])
   organizer              User                    @relation(fields: [organizerId], references: [id])
@@ -687,4 +687,10 @@ enum District {
 enum EquipmentType {
   CENTRIFUGE
   REFRIGERATOR
+}
+
+enum ApprovalStatus {
+  PENDING
+  ACCEPTED
+  CANCELLED
 }

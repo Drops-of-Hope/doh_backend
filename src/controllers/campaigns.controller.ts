@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient, ParticipationStatus } from "@prisma/client";
-import { CampaignWhereClause } from "../types/campaign.types.js";
+import { PrismaClient, ParticipationStatus, ApprovalStatus, Prisma } from "@prisma/client";
 import { CampaignService } from "../services/campaigns.service.js";
 import { QRScanResultType, ScanQRRequest, MarkAttendanceQRRequest } from "../types/qr.types.js";
 
@@ -37,11 +36,13 @@ export const CampaignsController = {
         return;
       }
 
-      const where: CampaignWhereClause = {};
+      const where: Prisma.CampaignWhereInput = {};
 
       if (status === "active") {
         where.isActive = true;
         where.startTime = { gte: new Date() };
+        // Only include approved campaigns in active listing
+        where.isApproved = ApprovalStatus.ACCEPTED;
       }
 
       if (featured === "true") {
@@ -189,10 +190,10 @@ export const CampaignsController = {
         console.warn('Service error, falling back to direct query:', serviceError);
         
         // Fallback to direct Prisma query
-        const where = {
+        const where: Prisma.CampaignWhereInput = {
           isActive: true,
           startTime: { gte: new Date() },
-          isApproved: true,
+          isApproved: ApprovalStatus.ACCEPTED,
           ...(featured === "true" && { expectedDonors: { gte: 50 } }),
         };
 
@@ -282,7 +283,7 @@ export const CampaignsController = {
         return;
       }
 
-      if (!campaign.isActive || !campaign.isApproved) {
+      if (!campaign.isActive || campaign.isApproved !== ApprovalStatus.ACCEPTED) {
         res.status(400).json({
           success: false,
           error: "Campaign not available",
@@ -484,7 +485,7 @@ export const CampaignsController = {
           contactPersonPhone,
           medicalEstablishmentId,
           organizerId: req.user?.id || '',
-          isApproved: false, // Requires approval
+          isApproved: ApprovalStatus.PENDING, // Requires approval
           requirements: requirements || {},
         },
         include: {
@@ -617,9 +618,22 @@ export const CampaignsController = {
       });
 
       if (!participation) {
-        res.status(404).json({
-          success: false,
-          error: "Participation not found",
+        // Auto-register on-site and mark attendance
+        const created = await prisma.campaignParticipation.create({
+          data: {
+            campaignId,
+            userId,
+            attendanceMarked: true,
+            donationCompleted,
+            status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+            pointsEarned: donationCompleted ? 10 : 5,
+          },
+        });
+
+        res.status(200).json({
+          success: true,
+          participation: created,
+          autoRegistered: true,
         });
         return;
       }
@@ -713,13 +727,24 @@ export const CampaignsController = {
   updateCampaignStatus: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { campaignId } = req.params;
-      const { isActive, isApproved } = req.body;
+      const { isActive, isApproved } = req.body as { isActive?: boolean; isApproved?: boolean | ApprovalStatus | string };
+
+      // Map possible boolean/string inputs to the enum
+      let mappedApproval: ApprovalStatus | undefined = undefined;
+      if (typeof isApproved === 'boolean') {
+        mappedApproval = isApproved ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+      } else if (typeof isApproved === 'string') {
+        const up = isApproved.toUpperCase();
+        if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') {
+          mappedApproval = up as ApprovalStatus;
+        }
+      }
 
       const campaign = await prisma.campaign.update({
         where: { id: campaignId },
         data: {
           ...(isActive !== undefined && { isActive }),
-          ...(isApproved !== undefined && { isApproved }),
+          ...(mappedApproval !== undefined && { isApproved: mappedApproval }),
           updatedAt: new Date(),
         },
         include: {
@@ -756,26 +781,38 @@ export const CampaignsController = {
 
       for (const attendee of attendees) {
         try {
-          const participation = await prisma.campaignParticipation.findFirst({
+          let participation = await prisma.campaignParticipation.findFirst({
             where: {
               campaignId,
               userId: attendee.userId,
             },
           });
 
+          const donationCompleted = attendee.donationCompleted || false;
           if (participation) {
             const updated = await prisma.campaignParticipation.update({
               where: { id: participation.id },
               data: {
                 attendanceMarked: true,
-                donationCompleted: attendee.donationCompleted || false,
-                status: attendee.donationCompleted ? 'COMPLETED' : 'ATTENDED',
-                pointsEarned: attendee.donationCompleted ? 10 : 5,
+                donationCompleted,
+                status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+                pointsEarned: donationCompleted ? 10 : 5,
               },
             });
             results.push({ success: true, userId: attendee.userId, participation: updated });
           } else {
-            results.push({ success: false, userId: attendee.userId, error: 'Participation not found' });
+            // Auto-register on-site and mark attendance
+            participation = await prisma.campaignParticipation.create({
+              data: {
+                campaignId,
+                userId: attendee.userId,
+                attendanceMarked: true,
+                donationCompleted,
+                status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+                pointsEarned: donationCompleted ? 10 : 5,
+              },
+            });
+            results.push({ success: true, userId: attendee.userId, participation, autoRegistered: true });
           }
         } catch (err) {
           console.error(`Error updating attendance for user ${attendee.userId}:`, err);
@@ -1308,7 +1345,7 @@ export const CampaignsController = {
       }
 
       // Find the participation record
-      const participation = await prisma.campaignParticipation.findFirst({
+      let participation = await prisma.campaignParticipation.findFirst({
         where: {
           userId,
           campaignId,
@@ -1326,11 +1363,43 @@ export const CampaignsController = {
       });
 
       if (!participation) {
-        res.status(404).json({
-          success: false,
-          error: "User not registered for this campaign",
+        // Auto-register on-site and mark attendance
+        participation = await prisma.campaignParticipation.create({
+          data: {
+            userId,
+            campaignId,
+            attendanceMarked: true,
+            qrCodeScanned: true,
+            scannedAt: new Date(),
+            scannedById: scannerId,
+            status: 'ATTENDED',
+            pointsEarned: 5,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                bloodGroup: true,
+                email: true,
+              },
+            },
+          },
         });
-        return;
+        // Best-effort activity log
+        try {
+          await prisma.activity.create({
+            data: {
+              userId,
+              type: 'CAMPAIGN_JOINED',
+              title: 'Joined Campaign (On-site)',
+              description: 'Registered on-site for campaign',
+              metadata: { campaignId },
+            },
+          });
+        } catch {
+          // ignore
+        }
       }
 
       // Update participation with attendance

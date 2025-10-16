@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { HealthVitalsService } from '../services/healthVitals.service';
+import { HealthVitalsService } from '../services/healthVitals.service.js';
 
 export const HealthVitalsController = {
   create: async (req: Request, res: Response): Promise<void> => {

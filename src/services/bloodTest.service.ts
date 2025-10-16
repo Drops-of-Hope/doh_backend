@@ -1,5 +1,5 @@
 // src/services/bloodTest.service.ts
-import { BloodTestRepository } from "../repositories/bloodTest.repository";
+import { BloodTestRepository } from "../repositories/bloodTest.repository.js";
 
 export const BloodTestService = {
   // Get all blood units awaiting testing for a specific medical establishment inventory
