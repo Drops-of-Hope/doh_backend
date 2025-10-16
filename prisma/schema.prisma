@@ -33,13 +33,14 @@ model User {
   emergencyRequests      EmergencyRequest[]
   EquipmentAssignment    EquipmentAssignment[]
   feedbacks              Feedback[]
-  HealthVital            HealthVital[]
+  healthVitals           HealthVital[]
   MaintenanceLog         MaintenanceLog[]
   notifications          Notification[]
   qrScans                QRScan[]
   StaffAssignment        StaffAssignment[]
   userDetails            UserDetail?
   homeStats              UserHomeStats?
+  devicePushTokens       DevicePushToken[]
 }
 
 model UserDetail {
@@ -93,6 +94,18 @@ model Notification {
   isRead    Boolean          @default(false)
   createdAt DateTime         @default(now())
   user      User             @relation(fields: [userId], references: [id])
+}
+
+model DevicePushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  platform  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }
 
 model CampaignParticipation {
@@ -511,18 +524,6 @@ model StaffAssignment {
 model Dummy {
   id        Int    @id @default(autoincrement())
   dummyName String
-}
-
-model HealthVital {
-  id            String       @id
-  userId        String
-  appointmentId String?      @unique
-  weight        Float
-  bp            Float
-  cvsPulse      Float
-  dateTime      DateTime     @default(now())
-  Appointment   Appointment? @relation(fields: [appointmentId], references: [id])
-  User          User         @relation(fields: [userId], references: [id])
 }
 
 enum BloodGroup {

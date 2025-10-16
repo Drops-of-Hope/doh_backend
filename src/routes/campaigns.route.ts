@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { CampaignsController } from "../controllers/campaigns.controller.js";
 import { authenticateToken } from "../middlewares/authenticateUser.js";
+import type { AuthenticatedRequest } from "../types/auth.types.js";
 
 const router = Router();
 
@@ -46,4 +47,31 @@ router.patch("/:campaignId/status", authenticateToken, CampaignsController.updat
 // POST /campaigns/:campaignId/manual-attendance - Manual attendance marking
 router.post("/:campaignId/manual-attendance", authenticateToken, CampaignsController.manualAttendanceMarking);
 
+// GET /campaigns/:id/my-registration - current user participation
+router.get("/:id/my-registration", authenticateToken, async (req: AuthenticatedRequest, res) => {
+	const { PrismaClient } = await import("@prisma/client");
+	const prisma = new PrismaClient();
+	const userId = req.user?.id;
+	if (!userId) {
+		res.status(401).json({ success: false, error: "Unauthorized" });
+		return;
+	}
+	const { id } = req.params;
+	const participation = await prisma.campaignParticipation.findFirst({
+		where: { campaignId: id, userId },
+	});
+	res.status(200).json({
+		success: true,
+		participation: participation ? {
+			id: participation.id,
+			campaignId: participation.campaignId,
+			userId: participation.userId,
+			status: participation.status,
+			attendanceMarked: participation.attendanceMarked,
+			donationCompleted: participation.donationCompleted,
+			pointsEarned: participation.pointsEarned,
+			scannedAt: participation.scannedAt,
+		} : null,
+	});
+});
 export default router;

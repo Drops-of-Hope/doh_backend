@@ -426,7 +426,7 @@ export const CampaignRepository = {
       throw new Error('Campaign not found');
     }
 
-    if (!campaign.isActive || !campaign.isApproved) {
+    if (!campaign.isActive || campaign.isApproved !== ApprovalStatus.ACCEPTED) {
       throw new Error('Campaign is not active or not approved');
     }
 
@@ -495,6 +495,16 @@ export const CampaignRepository = {
         },
       });
 
+      // Increment actual donors for this campaign for new on-site attendee
+      try {
+        await prisma.campaign.update({
+          where: { id: campaignId },
+          data: { actualDonors: { increment: 1 } },
+        });
+      } catch {
+        // ignore counter failures
+      }
+
       // Record activity to indicate user was auto-registered at the campaign
       try {
         const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
@@ -514,7 +524,8 @@ export const CampaignRepository = {
       return participation;
     }
 
-    return await prisma.campaignParticipation.update({
+    const wasMarked = participation.attendanceMarked;
+    const updated = await prisma.campaignParticipation.update({
       where: { id: participation.id },
       data: {
         attendanceMarked: true,
@@ -523,6 +534,20 @@ export const CampaignRepository = {
         pointsEarned: donationCompleted ? 10 : 5,
       },
     });
+
+    // Only increment if this is the first time marking attendance
+    if (!wasMarked) {
+      try {
+        await prisma.campaign.update({
+          where: { id: campaignId },
+          data: { actualDonors: { increment: 1 } },
+        });
+      } catch {
+        // ignore counter failures
+      }
+    }
+
+    return updated;
   },
 
   // Get campaign attendance
@@ -617,6 +642,16 @@ export const CampaignRepository = {
             },
           });
 
+          // Increment campaign actual donors for new on-site attendee
+          try {
+            await prisma.campaign.update({
+              where: { id: campaignId },
+              data: { actualDonors: { increment: 1 } },
+            });
+          } catch {
+            // ignore
+          }
+
           // Best-effort activity log
           try {
             const campaign = await prisma.campaign.findUnique({ where: { id: campaignId } });
@@ -635,6 +670,7 @@ export const CampaignRepository = {
 
           results.push({ success: true, userId: attendee.userId, participation });
         } else {
+          const wasMarked = participation.attendanceMarked;
           const updated = await prisma.campaignParticipation.update({
             where: { id: participation.id },
             data: {
@@ -644,6 +680,16 @@ export const CampaignRepository = {
               pointsEarned: donationCompleted ? 10 : 5,
             },
           });
+          if (!wasMarked) {
+            try {
+              await prisma.campaign.update({
+                where: { id: campaignId },
+                data: { actualDonors: { increment: 1 } },
+              });
+            } catch {
+              // ignore
+            }
+          }
           results.push({ success: true, userId: attendee.userId, participation: updated });
         }
       } catch (error) {

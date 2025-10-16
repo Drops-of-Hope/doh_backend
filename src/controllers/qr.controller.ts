@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { QRScanType } from "@prisma/client";
 import { QRScanResultType, QRDataContent } from "../types/qr.types.js";
+import { PushService } from "../services/push.service.js";
+import { SSE } from "../utils/sse.js";
 
 const prisma = new PrismaClient();
 
@@ -115,15 +117,40 @@ export const QRController = {
       };
 
       if (scanType === "CAMPAIGN_ATTENDANCE" && campaignId) {
-        // Update campaign participation
-        const participation = await prisma.campaignParticipation.findFirst({
+        // Update campaign participation with auto-register and donor count increment
+        let participation = await prisma.campaignParticipation.findFirst({
           where: {
             userId: scannedUserId,
             campaignId,
           },
         });
 
-        if (participation) {
+        if (!participation) {
+          // Auto-register walk-in and mark attendance
+          participation = await prisma.campaignParticipation.create({
+            data: {
+              userId: scannedUserId,
+              campaignId,
+              qrCodeScanned: true,
+              scannedAt: new Date(),
+              scannedById: userId,
+              attendanceMarked: true,
+              status: 'ATTENDED',
+              pointsEarned: 5,
+            },
+          });
+
+          // First-time attendee -> increment donors (best effort)
+          try {
+            await prisma.campaign.update({
+              where: { id: campaignId },
+              data: { actualDonors: { increment: 1 } },
+            });
+          } catch {
+            // ignore
+          }
+        } else {
+          const wasMarked = participation.attendanceMarked;
           await prisma.campaignParticipation.update({
             where: { id: participation.id },
             data: {
@@ -131,12 +158,26 @@ export const QRController = {
               scannedAt: new Date(),
               scannedById: userId,
               attendanceMarked: true,
+              status: 'ATTENDED',
+              // Only award base points if marking for first time
+              pointsEarned: wasMarked ? participation.pointsEarned : 5,
             },
           });
 
-          scanResult.participationUpdated = true;
-          scanResult.participationId = participation.id;
+          if (!wasMarked) {
+            try {
+              await prisma.campaign.update({
+                where: { id: campaignId },
+                data: { actualDonors: { increment: 1 } },
+              });
+            } catch {
+              // ignore
+            }
+          }
         }
+
+        scanResult.participationUpdated = true;
+        scanResult.participationId = participation.id;
       }
 
       // Create activity for scanned user
@@ -265,8 +306,8 @@ export const QRController = {
       // Parse QR data to get user ID
       let scannedUserId: string;
       try {
-        const qrContent: QRDataContent = JSON.parse(qrData);
-        scannedUserId = qrContent.userId || "";
+        const qrContent: Partial<{ userId: string; uid: string; scannedUserId: string }> = JSON.parse(qrData);
+        scannedUserId = qrContent.userId || qrContent.uid || qrContent.scannedUserId || "";
       } catch {
         // If not JSON, assume it's a simple user ID
         scannedUserId = qrData;
@@ -330,6 +371,13 @@ export const QRController = {
           },
         });
 
+        // Increment actual donors for new attendee
+        try {
+          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+        } catch {
+          // ignore
+        }
+
         // Best-effort activity log
         try {
           await prisma.activity.create({
@@ -347,7 +395,8 @@ export const QRController = {
       }
 
       // Mark attendance via QR scan
-      const [updatedParticipation, qrScan] = await Promise.all([
+      const wasMarked = participation.attendanceMarked;
+      const [updatedParticipation] = await Promise.all([
         prisma.campaignParticipation.update({
           where: { id: participation.id },
           data: {
@@ -374,19 +423,53 @@ export const QRController = {
         }),
       ]);
 
+      if (!wasMarked) {
+        try {
+          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+        } catch {
+          // ignore
+        }
+      }
+
+      // Side effects: push notification + SSE to donor
+      const scannedAt = updatedParticipation.scannedAt || new Date();
+      try {
+        await PushService.sendToUser(scannedUserId, {
+          title: "Attendance Marked",
+          body: "Your attendance was recorded successfully.",
+          data: {
+            type: "CAMPAIGN_ATTENDANCE",
+            campaignId,
+            participationId: updatedParticipation.id,
+            scannedAt,
+          },
+        });
+      } catch (e) {
+        console.warn('Push send error (ignored):', e);
+      }
+      try {
+        SSE.sendToUser(scannedUserId, 'attendance', {
+          campaignId,
+          participationId: updatedParticipation.id,
+          status: 'ATTENDED',
+          scannedAt,
+        });
+      } catch (e) {
+        console.warn('SSE emit error (ignored):', e);
+      }
+
       res.status(200).json({
         success: true,
-        data: {
-          attendance: {
-            participationId: updatedParticipation.id,
-            userId: scannedUserId,
-            userName: participation.user.name,
-            userBloodGroup: participation.user.bloodGroup,
-            campaignTitle: participation.campaign.title,
-            scannedAt: updatedParticipation.scannedAt,
-            status: updatedParticipation.status,
-          },
-          qrScanId: qrScan.id,
+        message: "Attendance marked",
+        participation: {
+          id: updatedParticipation.id,
+          campaignId,
+          userId: scannedUserId,
+          status: updatedParticipation.status,
+          attendanceMarked: true,
+          donationCompleted: updatedParticipation.donationCompleted,
+          pointsEarned: updatedParticipation.pointsEarned,
+          scannedAt,
         },
       });
     } catch (error) {
