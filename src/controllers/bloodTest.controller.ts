@@ -303,4 +303,35 @@ export const BloodTestController = {
         .json({ message: "Failed to update hemoglobin", error: errMsg });
     }
   },
+
+  // Mark a blood unit as SAFE after it passes all tests
+  passBloodUnit: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { bloodId } = req.params;
+
+      if (!bloodId) {
+        res.status(400).json({ message: "Blood unit ID is required." });
+        return;
+      }
+
+      const result = await BloodTestService.markAsSafe(bloodId);
+
+      if (!result) {
+        res
+          .status(404)
+          .json({ message: "Blood unit or test record not found." });
+        return;
+      }
+
+      res
+        .status(200)
+        .json({ message: "Blood unit marked as SAFE", data: result });
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error marking blood unit as SAFE:", errMsg);
+      res
+        .status(500)
+        .json({ message: "Failed to mark blood unit as SAFE", error: errMsg });
+    }
+  },
 };
