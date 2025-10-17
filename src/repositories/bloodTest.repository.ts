@@ -68,9 +68,9 @@ export const BloodTestRepository = {
           hivTest: null,
           hemoglobin: 0,
           syphilis: null,
-          hepatitisB: false,
-          hepatitisC: false,
-          malaria: false,
+          hepatitisB: null,
+          hepatitisC: null,
+          malaria: null,
           resultPending: true,
         },
         include: {
