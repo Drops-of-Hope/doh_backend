@@ -10,12 +10,12 @@ export const CampaignOrganizerRepository = {
       organizerId,
     };
 
-    if (status) {
+      if (status) {
       if (status === 'active') {
         where.isActive = true;
-        where.isApproved = true;
+        where.isApproved = ApprovalStatus.ACCEPTED;
       } else if (status === 'pending') {
-        where.isApproved = false;
+        where.isApproved = ApprovalStatus.PENDING;
       } else if (status === 'inactive') {
         where.isActive = false;
       }
@@ -93,7 +93,7 @@ export const CampaignOrganizerRepository = {
         expectedDonors: data.targetDonors,
         contactPersonName: 'Organizer', // Default
         contactPersonPhone: data.contactInfo,
-        isApproved: false, // Needs approval
+  isApproved: ApprovalStatus.PENDING, // Needs approval
         isActive: true,
         requirements: data.requirements ? { requirements: data.requirements } : undefined,
         medicalEstablishmentId: '1', // Default establishment ID - should be dynamic

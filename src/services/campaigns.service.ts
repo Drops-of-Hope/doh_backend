@@ -144,7 +144,7 @@ export const CampaignService = {
         contactPersonName: campaignData.contactPersonName,
         contactPersonPhone: campaignData.contactPersonPhone,
         requirements: campaignData.requirements,
-        isApproved: false, // Requires approval
+  isApproved: ApprovalStatus.PENDING, // Requires approval
         organizer: { connect: { id: organizerId } },
         medicalEstablishment: { connect: { id: campaignData.medicalEstablishmentId } },
       });
@@ -169,7 +169,19 @@ export const CampaignService = {
         throw new Error(permissions.reasons?.[0] || 'Cannot edit this campaign');
       }
 
-      const campaign = await CampaignRepository.update(campaignId, updateData);
+      // Normalize updateData.isApproved to ApprovalStatus if provided
+      if (updateData.isApproved !== undefined) {
+        const v = updateData.isApproved;
+        if (typeof v === 'boolean') updateData.isApproved = v ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+        else if (typeof v === 'string') {
+          const up = v.toUpperCase();
+          if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') updateData.isApproved = up as ApprovalStatus;
+        }
+      }
+
+      // Cast to Prisma.CampaignUpdateInput via unknown to avoid explicit `any`
+      const updatePayload = updateData as unknown as Prisma.CampaignUpdateInput;
+      const campaign = await CampaignRepository.update(campaignId, updatePayload);
 
       return {
         success: true,

@@ -97,7 +97,7 @@ export const CampaignRepository = {
     const where: Prisma.CampaignWhereInput = {
       isActive: true,
       startTime: { gte: new Date() },
-      isApproved: true,
+      isApproved: ApprovalStatus.ACCEPTED,
     };
 
     if (featured === "true") {
@@ -713,13 +713,27 @@ export const CampaignRepository = {
   },
 
   // Update campaign status
-  updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: boolean }) => {
+  updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: ApprovalStatus | boolean | string }) => {
+    // Normalize isApproved to ApprovalStatus if necessary
+    let approvalValue: ApprovalStatus | undefined = undefined;
+    if (statusData.isApproved !== undefined) {
+      const v = statusData.isApproved;
+      if (typeof v === 'boolean') approvalValue = v ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+      else if (typeof v === 'string') {
+        const up = v.toUpperCase();
+        if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') approvalValue = up as ApprovalStatus;
+      } else approvalValue = v as ApprovalStatus;
+    }
+
+    const data: Prisma.CampaignUpdateInput = {
+      ...(statusData.isActive !== undefined && { isActive: statusData.isActive }),
+      ...(approvalValue !== undefined && { isApproved: approvalValue }),
+      updatedAt: new Date(),
+    } as Prisma.CampaignUpdateInput;
+
     return await prisma.campaign.update({
       where: { id: campaignId },
-      data: ({
-        ...statusData,
-        updatedAt: new Date(),
-      } as unknown as Prisma.CampaignUpdateInput),
+      data,
       include: {
         organizer: {
           select: {

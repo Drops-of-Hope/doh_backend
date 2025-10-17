@@ -1,6 +1,5 @@
 import { Request, Response } from "express";
 import { PrismaClient, ParticipationStatus, Prisma, ApprovalStatus } from "@prisma/client";
-import { CampaignWhereClause } from "../types/campaign.types.js";
 import { CampaignService } from "../services/campaigns.service.js";
 import { PushService } from "../services/push.service.js";
 import { SSE } from "../utils/sse.js";
@@ -557,7 +556,7 @@ export const CampaignsController = {
           contactPersonPhone,
           medicalEstablishmentId,
           organizerId: req.user?.id || '',
-          isApproved: false, // Requires approval
+          isApproved: ApprovalStatus.PENDING, // Requires approval
           requirements: requirements || {},
         },
         include: {
