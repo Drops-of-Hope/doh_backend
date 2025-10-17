@@ -14,10 +14,11 @@ import qrRoutes from "./qr.route.js";
 import notificationRoutes from "./notification.route.js";
 import donationFormRoutes from "./donationForm.route.js";
 import eligibilityRoutes from "./eligibility.route.js";
-import healthVitalsRoutes from './heathVitals.route.js';
-import bloodDonationRoutes from './bloodDonation.route.js';
+import healthVitalsRoutes from "./heathVitals.route.js";
+import bloodDonationRoutes from "./bloodDonation.route.js";
 import activitiesRoutes from "./activities.route.js";
 import bloodTestRoutes from "./bloodTest.route.js";
+import inventoryRoutes from "./inventory.route.js";
 
 const router = Router();
 
@@ -74,5 +75,8 @@ router.use("/blood-donation", bloodDonationRoutes);
 
 //route to handle blood testings
 router.use("/blood-test", bloodTestRoutes);
+
+// Inventory routes
+router.use("/inventories", inventoryRoutes);
 
 export default router;
