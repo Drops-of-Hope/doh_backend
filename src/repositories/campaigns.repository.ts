@@ -90,6 +90,164 @@ export const CampaignRepository = {
     };
   },
 
+  // Find completed campaigns for a specific medical establishment (past, accepted)
+  findCompletedByMedicalEstablishment: async (
+    medicalEstablishmentId: string,
+    params: { page?: number; limit?: number } = {}
+  ) => {
+    const { page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+    const now = new Date();
+
+    const where: Prisma.CampaignWhereInput = {
+      medicalEstablishmentId,
+      isApproved: ApprovalStatus.ACCEPTED,
+      endTime: { lt: now },
+    };
+
+    const [campaigns, totalCount] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { endTime: 'desc' },
+        include: {
+          organizer: { select: { id: true, name: true, email: true } },
+          medicalEstablishment: { select: { id: true, name: true, address: true } },
+        },
+      }),
+      prisma.campaign.count({ where }),
+    ]);
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        status: 'Completed' as const,
+        date: campaign.endTime,
+        unitsCollected: campaign.actualDonors,
+        expectedDonors: campaign.expectedDonors,
+        actualDonors: campaign.actualDonors,
+        location: campaign.location,
+        medicalEstablishment: campaign.medicalEstablishment,
+        organizer: campaign.organizer.name,
+      })),
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  },
+
+  // Get summary metrics for a medical establishment
+  getEstablishmentSummary: async (medicalEstablishmentId: string) => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const [
+      pendingRequests,
+      upcomingThisMonth,
+      totalCampaignsHeld,
+      totalCampaignDonors,
+    ] = await Promise.all([
+      // Pending organizer requests
+      prisma.campaign.count({
+        where: {
+          medicalEstablishmentId,
+          isApproved: ApprovalStatus.PENDING,
+        },
+      }),
+
+      // Upcoming campaigns scheduled this month
+      prisma.campaign.count({
+        where: {
+          medicalEstablishmentId,
+          isActive: true,
+          isApproved: ApprovalStatus.ACCEPTED,
+          startTime: { gte: monthStart, lte: monthEnd },
+        },
+      }),
+
+      // Total campaigns held (completed, all time)
+      prisma.campaign.count({
+        where: {
+          medicalEstablishmentId,
+          isApproved: ApprovalStatus.ACCEPTED,
+          endTime: { lt: now },
+        },
+      }),
+
+      // Total donors from recent campaigns (last 30 days)
+      prisma.campaignParticipation.count({
+        where: {
+          donationCompleted: true,
+          campaign: {
+            medicalEstablishmentId,
+            isApproved: ApprovalStatus.ACCEPTED,
+            startTime: { gte: thirtyDaysAgo },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      pendingRequests,
+      upcomingCampaigns: upcomingThisMonth,
+      totalCampaignsHeld,
+      totalCampaignDonors,
+    };
+  },
+
+  // Find upcoming campaigns for a specific medical establishment
+  findUpcomingByMedicalEstablishment: async (
+    medicalEstablishmentId: string,
+    params: { featured?: string; limit?: number } = {}
+  ) => {
+    const { featured, limit = 5 } = params;
+
+    const where: Prisma.CampaignWhereInput = {
+      isActive: true,
+      startTime: { gte: new Date() },
+      isApproved: ApprovalStatus.ACCEPTED,
+      medicalEstablishmentId,
+    };
+
+    if (featured === 'true') {
+      where.expectedDonors = { gte: 50 };
+    }
+
+    const campaigns = await prisma.campaign.findMany({
+      where,
+      include: {
+        medicalEstablishment: true,
+        organizer: { select: { name: true } },
+      },
+      orderBy: { startTime: 'asc' },
+      take: limit,
+    });
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        type: campaign.type,
+        location: campaign.location,
+        description: campaign.description,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        expectedDonors: campaign.expectedDonors,
+        actualDonors: campaign.actualDonors,
+        imageUrl: campaign.imageUrl,
+        organizer: campaign.organizer.name,
+        medicalEstablishment: campaign.medicalEstablishment,
+      })),
+    };
+  },
+
   // Find upcoming campaigns
   findUpcoming: async (filters: CampaignFilters) => {
     const { featured, limit = 5 } = filters;
