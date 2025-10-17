@@ -336,4 +336,57 @@ export const BloodTestRepository = {
 
     return result;
   },
+
+  // Mark both the bloodTest record and the blood record as SAFE in a transaction
+  async markAsSafe(bloodId: string) {
+    // Use a transaction to ensure both updates succeed or both fail
+    const blood = await prisma.blood.findUnique({ where: { id: bloodId } });
+    if (!blood) return null;
+
+    const result = await prisma.$transaction(async (tx) => {
+      // Update or create bloodTest record
+      const existing = await tx.bloodTest.findFirst({ where: { bloodId } });
+
+      let bt;
+      if (existing) {
+        bt = await tx.bloodTest.update({
+          where: { id: existing.id },
+          data: {
+            status: "SAFE",
+            resultPending: false,
+            testDateTime: new Date(),
+          },
+          include: { blood: true },
+        });
+      } else {
+        // create a minimal bloodTest record marked SAFE
+        bt = await tx.bloodTest.create({
+          data: {
+            bloodId,
+            testDateTime: new Date(),
+            status: "SAFE",
+            ABOTest: "O_POSITIVE",
+            hivTest: null,
+            hemoglobin: 0,
+            syphilis: null,
+            hepatitisB: null,
+            hepatitisC: null,
+            malaria: false,
+            resultPending: false,
+          },
+          include: { blood: true },
+        });
+      }
+
+      // Update blood status
+      await tx.blood.update({
+        where: { id: bloodId },
+        data: { status: "SAFE" },
+      });
+
+      return bt;
+    });
+
+    return result;
+  },
 };

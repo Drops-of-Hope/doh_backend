@@ -1,5 +1,5 @@
 // src/services/bloodTest.service.ts
-import { BloodTestRepository } from "../repositories/bloodTest.repository";
+import { BloodTestRepository } from "../repositories/bloodTest.repository.js";
 
 export const BloodTestService = {
   // Get all blood units awaiting testing for a specific medical establishment inventory
@@ -150,6 +150,19 @@ export const BloodTestService = {
     } catch (error) {
       console.error("Error in BloodTestService.updateHemoglobin:", error);
       throw new Error("Failed to update hemoglobin");
+    }
+  },
+
+  // Mark both the bloodTest record and the blood record as SAFE
+  async markAsSafe(bloodId: string) {
+    try {
+      if (!bloodId) throw new Error("Missing bloodId");
+
+      const result = await BloodTestRepository.markAsSafe(bloodId);
+      return result;
+    } catch (error) {
+      console.error("Error in BloodTestService.markAsSafe:", error);
+      throw new Error("Failed to mark blood unit as SAFE");
     }
   },
 };

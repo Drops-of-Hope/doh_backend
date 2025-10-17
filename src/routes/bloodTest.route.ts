@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { BloodTestController } from "../controllers/bloodTest.controller";
+import { BloodTestController } from "../controllers/bloodTest.controller.js";
 
 const router = Router();
 
@@ -11,6 +11,9 @@ router.get("/unit/:bloodId", BloodTestController.findBloodUnit);
 
 // Route to get the BloodTest record for a blood unit
 router.get("/test/:bloodId", BloodTestController.getTestByBloodId);
+
+// Mark a blood unit as SAFE (passed all tests)
+router.get("/pass/:bloodId", BloodTestController.passBloodUnit);
 
 //Route to test blood type
 router.post("/type/:bloodId", BloodTestController.updateBloodType);

@@ -13,9 +13,9 @@ export const CampaignOrganizerRepository = {
     if (status) {
       if (status === 'active') {
         where.isActive = true;
-  where.isApproved = ApprovalStatus.ACCEPTED as unknown as Prisma.EnumApprovalStatusFilter;
+        where.isApproved = true;
       } else if (status === 'pending') {
-  where.isApproved = ApprovalStatus.PENDING as unknown as Prisma.EnumApprovalStatusFilter;
+        where.isApproved = false;
       } else if (status === 'inactive') {
         where.isActive = false;
       }
@@ -93,7 +93,7 @@ export const CampaignOrganizerRepository = {
         expectedDonors: data.targetDonors,
         contactPersonName: 'Organizer', // Default
         contactPersonPhone: data.contactInfo,
-  isApproved: ApprovalStatus.PENDING,
+        isApproved: false, // Needs approval
         isActive: true,
         requirements: data.requirements ? { requirements: data.requirements } : undefined,
         medicalEstablishmentId: '1', // Default establishment ID - should be dynamic

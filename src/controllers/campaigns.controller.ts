@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { PrismaClient, ParticipationStatus, Prisma, ApprovalStatus } from "@prisma/client";
 import { CampaignWhereClause } from "../types/campaign.types.js";
 import { CampaignService } from "../services/campaigns.service.js";
+import { PushService } from "../services/push.service.js";
+import { SSE } from "../utils/sse.js";
 import { QRScanResultType, ScanQRRequest, MarkAttendanceQRRequest } from "../types/qr.types.js";
 
 const prisma = new PrismaClient();
@@ -37,11 +39,13 @@ export const CampaignsController = {
         return;
       }
 
-      const where: CampaignWhereClause = {};
+      const where: Prisma.CampaignWhereInput = {};
 
       if (status === "active") {
         where.isActive = true;
         where.startTime = { gte: new Date() };
+        // Only include approved campaigns in active listing
+        where.isApproved = ApprovalStatus.ACCEPTED;
       }
 
       if (featured === "true") {
@@ -189,10 +193,10 @@ export const CampaignsController = {
         console.warn('Service error, falling back to direct query:', serviceError);
         
         // Fallback to direct Prisma query
-        const where = {
+        const where: Prisma.CampaignWhereInput = {
           isActive: true,
           startTime: { gte: new Date() },
-  isApproved: ApprovalStatus.ACCEPTED,
+          isApproved: ApprovalStatus.ACCEPTED,
           ...(featured === "true" && { expectedDonors: { gte: 50 } }),
         };
 
@@ -553,7 +557,7 @@ export const CampaignsController = {
           contactPersonPhone,
           medicalEstablishmentId,
           organizerId: req.user?.id || '',
-    isApproved: ApprovalStatus.PENDING,
+          isApproved: false, // Requires approval
           requirements: requirements || {},
         },
         include: {
@@ -686,13 +690,82 @@ export const CampaignsController = {
       });
 
       if (!participation) {
-        res.status(404).json({
-          success: false,
-          error: "Participation not found",
+        // Auto-register on-site and mark attendance
+        const created = await prisma.campaignParticipation.create({
+          data: {
+            campaignId,
+            userId,
+            attendanceMarked: true,
+            donationCompleted,
+            status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+            pointsEarned: donationCompleted ? 10 : 5,
+          },
+        });
+
+        // Increment campaign actual donors counter for new attendee
+        try {
+          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+        } catch {
+          // ignore
+        }
+
+        // Side effects: push + SSE (optional parity with QR flow)
+        // Create immediate DONATION_ELIGIBLE notification for donor
+        try {
+          await prisma.notification.create({
+            data: {
+              userId,
+              type: "DONATION_ELIGIBLE",
+              title: "QR scanned",
+              message:
+                "Your attendance has been verified. You can now proceed with the donation form.",
+              isRead: false,
+              metadata: {
+                campaignId,
+                scannedAt: new Date().toISOString(),
+              },
+            },
+          });
+        } catch (e) {
+          console.error(
+            "Failed to create DONATION_ELIGIBLE notification (manual attendance create):",
+            e
+          );
+        }
+        try {
+          await PushService.sendToUser(userId, {
+            title: "Attendance Marked",
+            body: "Your attendance was recorded successfully.",
+            data: {
+              type: "CAMPAIGN_ATTENDANCE",
+              campaignId,
+              participationId: created.id,
+              scannedAt: created.scannedAt ?? new Date(),
+            },
+          });
+        } catch (e) {
+          console.warn('Push send error (manual attendance):', e);
+        }
+        try {
+          SSE.sendToUser(userId, 'attendance', {
+            campaignId,
+            participationId: created.id,
+            status: created.status,
+            scannedAt: created.scannedAt ?? new Date(),
+          });
+        } catch (e) {
+          console.warn('SSE emit error (manual attendance):', e);
+        }
+
+        res.status(200).json({
+          success: true,
+          participation: created,
+          autoRegistered: true,
         });
         return;
       }
 
+      const wasMarked = participation.attendanceMarked;
       const updatedParticipation = await prisma.campaignParticipation.update({
         where: { id: participation.id },
         data: {
@@ -702,6 +775,62 @@ export const CampaignsController = {
           pointsEarned: donationCompleted ? 10 : 5, // Example points
         },
       });
+
+      if (!wasMarked) {
+        try {
+          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+        } catch {
+          // ignore
+        }
+      }
+
+      // Side effects: push + SSE (optional parity with QR flow)
+      // Create immediate DONATION_ELIGIBLE notification for donor
+      try {
+        await prisma.notification.create({
+          data: {
+            userId,
+            type: "DONATION_ELIGIBLE",
+            title: "QR scanned",
+            message:
+              "Your attendance has been verified. You can now proceed with the donation form.",
+            isRead: false,
+            metadata: {
+              campaignId,
+              scannedAt: new Date().toISOString(),
+            },
+          },
+        });
+      } catch (e) {
+        console.error(
+          "Failed to create DONATION_ELIGIBLE notification (manual attendance update):",
+          e
+        );
+      }
+      try {
+        await PushService.sendToUser(userId, {
+          title: "Attendance Marked",
+          body: "Your attendance was recorded successfully.",
+          data: {
+            type: "CAMPAIGN_ATTENDANCE",
+            campaignId,
+            participationId: updatedParticipation.id,
+            scannedAt: updatedParticipation.scannedAt ?? new Date(),
+          },
+        });
+      } catch (e) {
+        console.warn('Push send error (manual attendance update):', e);
+      }
+      try {
+        SSE.sendToUser(userId, 'attendance', {
+          campaignId,
+          participationId: updatedParticipation.id,
+          status: updatedParticipation.status,
+          scannedAt: updatedParticipation.scannedAt ?? new Date(),
+        });
+      } catch (e) {
+        console.warn('SSE emit error (manual attendance update):', e);
+      }
 
       res.status(200).json({
         success: true,
@@ -782,13 +911,24 @@ export const CampaignsController = {
   updateCampaignStatus: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
       const { campaignId } = req.params;
-      const { isActive, isApproved } = req.body;
+      const { isActive, isApproved } = req.body as { isActive?: boolean; isApproved?: boolean | ApprovalStatus | string };
+
+      // Map possible boolean/string inputs to the enum
+      let mappedApproval: ApprovalStatus | undefined = undefined;
+      if (typeof isApproved === 'boolean') {
+        mappedApproval = isApproved ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+      } else if (typeof isApproved === 'string') {
+        const up = isApproved.toUpperCase();
+        if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') {
+          mappedApproval = up as ApprovalStatus;
+        }
+      }
 
       const campaign = await prisma.campaign.update({
         where: { id: campaignId },
         data: {
           ...(isActive !== undefined && { isActive }),
-          ...(isApproved !== undefined && { isApproved }),
+          ...(mappedApproval !== undefined && { isApproved: mappedApproval }),
           updatedAt: new Date(),
         },
         include: {
@@ -850,26 +990,82 @@ export const CampaignsController = {
 
       for (const attendee of attendees) {
         try {
-          const participation = await prisma.campaignParticipation.findFirst({
+          let participation = await prisma.campaignParticipation.findFirst({
             where: {
               campaignId,
               userId: attendee.userId,
             },
           });
 
+          const donationCompleted = attendee.donationCompleted || false;
           if (participation) {
             const updated = await prisma.campaignParticipation.update({
               where: { id: participation.id },
               data: {
                 attendanceMarked: true,
-                donationCompleted: attendee.donationCompleted || false,
-                status: attendee.donationCompleted ? 'COMPLETED' : 'ATTENDED',
-                pointsEarned: attendee.donationCompleted ? 10 : 5,
+                donationCompleted,
+                status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+                pointsEarned: donationCompleted ? 10 : 5,
               },
             });
+            // Create immediate DONATION_ELIGIBLE notification
+            try {
+              await prisma.notification.create({
+                data: {
+                  userId: attendee.userId,
+                  type: "DONATION_ELIGIBLE",
+                  title: "QR scanned",
+                  message:
+                    "Your attendance has been verified. You can now proceed with the donation form.",
+                  isRead: false,
+                  metadata: {
+                    campaignId,
+                    scannedAt: new Date().toISOString(),
+                  },
+                },
+              });
+            } catch (e) {
+              console.error(
+                `Failed to create DONATION_ELIGIBLE notification (manual-attendance update for ${attendee.userId}):`,
+                e
+              );
+            }
             results.push({ success: true, userId: attendee.userId, participation: updated });
           } else {
-            results.push({ success: false, userId: attendee.userId, error: 'Participation not found' });
+            // Auto-register on-site and mark attendance
+            participation = await prisma.campaignParticipation.create({
+              data: {
+                campaignId,
+                userId: attendee.userId,
+                attendanceMarked: true,
+                donationCompleted,
+                status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+                pointsEarned: donationCompleted ? 10 : 5,
+              },
+            });
+            // Create immediate DONATION_ELIGIBLE notification
+            try {
+              await prisma.notification.create({
+                data: {
+                  userId: attendee.userId,
+                  type: "DONATION_ELIGIBLE",
+                  title: "QR scanned",
+                  message:
+                    "Your attendance has been verified. You can now proceed with the donation form.",
+                  isRead: false,
+                  metadata: {
+                    campaignId,
+                    scannedAt: new Date().toISOString(),
+                  },
+                },
+              });
+            } catch (e) {
+              console.error(
+                `Failed to create DONATION_ELIGIBLE notification (manual-attendance create for ${attendee.userId}):`,
+                e
+              );
+            }
+            results.push({ success: true, userId: attendee.userId, participation, autoRegistered: true });
           }
         } catch (err) {
           console.error(`Error updating attendance for user ${attendee.userId}:`, err);
@@ -1301,7 +1497,7 @@ export const CampaignsController = {
       }
 
       // Find the participation record
-      const participation = await prisma.campaignParticipation.findFirst({
+      let participation = await prisma.campaignParticipation.findFirst({
         where: {
           userId,
           campaignId,
@@ -1319,14 +1515,54 @@ export const CampaignsController = {
       });
 
       if (!participation) {
-        res.status(404).json({
-          success: false,
-          error: "User not registered for this campaign",
+        // Auto-register on-site and mark attendance
+        participation = await prisma.campaignParticipation.create({
+          data: {
+            userId,
+            campaignId,
+            attendanceMarked: true,
+            qrCodeScanned: true,
+            scannedAt: new Date(),
+            scannedById: scannerId,
+            status: 'ATTENDED',
+            pointsEarned: 5,
+          },
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                bloodGroup: true,
+                email: true,
+              },
+            },
+          },
         });
-        return;
+
+        // Increment counter for new attendee
+        try {
+          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+        } catch {
+          // ignore
+        }
+        // Best-effort activity log
+        try {
+          await prisma.activity.create({
+            data: {
+              userId,
+              type: 'CAMPAIGN_JOINED',
+              title: 'Joined Campaign (On-site)',
+              description: 'Registered on-site for campaign',
+              metadata: { campaignId },
+            },
+          });
+        } catch {
+          // ignore
+        }
       }
 
       // Update participation with attendance
+      const wasMarkedQR = participation.attendanceMarked;
       const updatedParticipation = await prisma.campaignParticipation.update({
         where: { id: participation.id },
         data: {
@@ -1346,6 +1582,14 @@ export const CampaignsController = {
           },
         },
       });
+
+      if (!wasMarkedQR) {
+        try {
+          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+        } catch {
+          // ignore
+        }
+      }
 
       // Create activity record for the user
       await prisma.activity.create({
@@ -1419,7 +1663,7 @@ export const CampaignsController = {
         return;
       }
 
-      const scannedUserId = qrContent.userId || qrContent.scannedUserId;
+  const scannedUserId = qrContent.userId || qrContent.scannedUserId || qrContent.uid;
       if (!scannedUserId) {
         res.status(400).json({
           success: false,

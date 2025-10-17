@@ -67,11 +67,25 @@ export const AppointmentsController = {
   getUserAppointments: async (req: Request, res: Response): Promise<void> => {
     try {
       const { userId } = req.params;
+      const { status } = req.query;
+      
       if (!userId) {
         res.status(400).json({ message: "User ID is required" });
         return;
       }
-      const appointments = await AppointmentsService.getAppointmentsByUserId(userId);
+      
+      // Validate status parameter if provided
+      if (status && typeof status === 'string') {
+        const validStatuses = ['upcoming', 'completed', 'cancelled'];
+        if (!validStatuses.includes(status.toLowerCase())) {
+          res.status(400).json({ 
+            message: "Invalid status filter. Allowed values: upcoming, completed, cancelled" 
+          });
+          return;
+        }
+      }
+      
+      const appointments = await AppointmentsService.getAppointmentsByUserId(userId, status as string);
       if (!appointments || appointments.length === 0) {
         res.status(404).json({ message: "No appointments found for this user" });
         return;
@@ -120,11 +134,7 @@ export const AppointmentsController = {
         return;
       }
 
-      // If authentication middleware attaches a user, capture the id; otherwise undefined
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const user: any = (req as any).user;
-
-      const updated = await AppointmentsService.updateAppointmentStatus(appointmentId, status, user?.id);
+      const updated = await AppointmentsService.updateAppointmentStatus(appointmentId, status);
 
       if (!updated) {
         res.status(404).json({ message: "Appointment not found" });
@@ -272,9 +282,19 @@ export const AppointmentsController = {
         return;
       }
 
-      // Check if slot exists and is available
+      // Check if slot exists and is available for the specific date
       const slot = await prisma.appointmentSlot.findUnique({
         where: { id: slotId },
+        include: {
+          appointments: {
+            where: {
+              appointmentDate: {
+                gte: new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate()),
+                lt: new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate() + 1),
+              },
+            },
+          },
+        },
       });
 
       if (!slot) {
@@ -291,6 +311,16 @@ export const AppointmentsController = {
           success: false,
           error: "Slot not available",
           message: "The specified appointment slot is not available",
+        });
+        return;
+      }
+
+      // Check if slot has capacity for the specific date
+      if (slot.appointments.length >= slot.donorsPerSlot) {
+        res.status(400).json({
+          success: false,
+          error: "Slot fully booked",
+          message: "The specified appointment slot is fully booked for the selected date",
         });
         return;
       }

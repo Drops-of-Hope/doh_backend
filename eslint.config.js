@@ -23,6 +23,14 @@ export default [
         __dirname: "readonly",
         __filename: "readonly",
       },
+      // Node environment globals
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        module: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+      },
     },
     rules: {
       "@typescript-eslint/no-require-imports": "off", // if you MUST use require()
