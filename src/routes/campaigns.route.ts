@@ -11,6 +11,12 @@ router.get("/", CampaignsController.getCampaigns);
 // GET /campaigns/upcoming
 router.get("/upcoming", CampaignsController.getUpcomingCampaigns);
 
+// GET /campaigns/pending - Get campaigns pending approval
+router.get("/pending", CampaignsController.getPendingCampaigns);
+
+// GET /campaigns/pending/medical-establishment/:medicalEstablishmentId - Get pending campaigns for a medical establishment
+router.get('/pending/medical-establishment/:medicalEstablishmentId', CampaignsController.getPendingCampaignsByMedicalEstablishment);
+
 // GET /campaigns/:id - Get single campaign details
 router.get("/:id", CampaignsController.getCampaignDetails);
 
@@ -43,6 +49,9 @@ router.get("/:campaignId/attendance", authenticateToken, CampaignsController.get
 
 // PATCH /campaigns/:campaignId/status - Update campaign status (admin)
 router.patch("/:campaignId/status", authenticateToken, CampaignsController.updateCampaignStatus);
+
+// PATCH /campaigns/:campaignId/approval - Approve or reject a campaign
+router.patch('/:campaignId/approval', CampaignsController.setCampaignApproval);
 
 // POST /campaigns/:campaignId/manual-attendance - Manual attendance marking
 router.post("/:campaignId/manual-attendance", authenticateToken, CampaignsController.manualAttendanceMarking);

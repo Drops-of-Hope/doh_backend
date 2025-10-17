@@ -1,4 +1,4 @@
-import { Campaign, MedicalEstablishment, Prisma } from '@prisma/client';
+import { Campaign, MedicalEstablishment, Prisma, ApprovalStatus } from '@prisma/client';
 
 export type CampaignWithRelations = Campaign & {
   medicalEstablishment: MedicalEstablishment;
@@ -31,13 +31,14 @@ export type CampaignQueryResult = Prisma.CampaignGetPayload<{
 export interface CampaignWhereClause {
   isActive?: boolean;
   startTime?: { gte: Date };
-  isApproved?: boolean;
+  // Approval can be represented by the ApprovalStatus enum (PENDING/ACCEPTED/CANCELLED)
+  isApproved?: ApprovalStatus | boolean;
   expectedDonors?: { gte: number };
 }
 
 export interface CampaignUpcomingWhereClause {
   isActive: boolean;
   startTime: { gte: Date };
-  isApproved: boolean;
+  isApproved: ApprovalStatus | boolean;
   expectedDonors?: { gte: number };
 }

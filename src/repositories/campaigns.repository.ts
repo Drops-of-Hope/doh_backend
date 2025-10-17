@@ -181,6 +181,122 @@ export const CampaignRepository = {
     };
   },
 
+  // Find campaigns pending approval
+  findPending: async (params: { page?: number; limit?: number } = {}) => {
+    const { page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CampaignWhereInput = {
+      isApproved: ApprovalStatus.PENDING as unknown as Prisma.EnumApprovalStatusFilter,
+    } as Prisma.CampaignWhereInput;
+
+    const [campaigns, totalCount] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          medicalEstablishment: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
+          _count: {
+            select: { participations: true },
+          },
+        },
+      }),
+      prisma.campaign.count({ where }),
+    ]);
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        location: campaign.location,
+        expectedDonors: campaign.expectedDonors,
+        contactPersonName: campaign.contactPersonName,
+        contactPersonPhone: campaign.contactPersonPhone,
+        requirements: campaign.requirements,
+        isApproved: campaign.isApproved,
+        isActive: campaign.isActive,
+        organizer: campaign.organizer,
+        medicalEstablishment: campaign.medicalEstablishment,
+        participantsCount: campaign._count.participations,
+        createdAt: campaign.createdAt,
+        updatedAt: campaign.updatedAt,
+      })),
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  },
+
+  // Find campaigns pending approval for a specific blood bank
+  findPendingByMedicalEstablishment: async (medicalEstablishmentId: string, params: { page?: number; limit?: number } = {}) => {
+    const { page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CampaignWhereInput = {
+      medicalEstablishmentId,
+      isApproved: ApprovalStatus.PENDING as unknown as Prisma.EnumApprovalStatusFilter,
+    } as Prisma.CampaignWhereInput;
+
+    const [campaigns, totalCount] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: { select: { id: true, name: true, email: true } },
+          medicalEstablishment: { select: { id: true, name: true, address: true } },
+          _count: { select: { participations: true } },
+        },
+      }),
+      prisma.campaign.count({ where }),
+    ]);
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        location: campaign.location,
+        expectedDonors: campaign.expectedDonors,
+        contactPersonName: campaign.contactPersonName,
+        contactPersonPhone: campaign.contactPersonPhone,
+        requirements: campaign.requirements,
+        isApproved: campaign.isApproved,
+        isActive: campaign.isActive,
+        organizer: campaign.organizer,
+        medicalEstablishment: campaign.medicalEstablishment,
+        participantsCount: campaign._count.participations,
+        createdAt: campaign.createdAt,
+        updatedAt: campaign.updatedAt,
+      })),
+      pagination: { page, limit, total: totalCount, totalPages: Math.ceil(totalCount / limit) },
+    };
+  },
+
   // Create new campaign
   create: async (campaignData: Prisma.CampaignCreateInput) => {
     return await prisma.campaign.create({
@@ -597,13 +713,27 @@ export const CampaignRepository = {
   },
 
   // Update campaign status
-  updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: ApprovalStatus }) => {
+  updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: ApprovalStatus | boolean | string }) => {
+    // Normalize isApproved to ApprovalStatus if necessary
+    let approvalValue: ApprovalStatus | undefined = undefined;
+    if (statusData.isApproved !== undefined) {
+      const v = statusData.isApproved;
+      if (typeof v === 'boolean') approvalValue = v ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+      else if (typeof v === 'string') {
+        const up = v.toUpperCase();
+        if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') approvalValue = up as ApprovalStatus;
+      } else approvalValue = v as ApprovalStatus;
+    }
+
+    const data: Prisma.CampaignUpdateInput = {
+      ...(statusData.isActive !== undefined && { isActive: statusData.isActive }),
+      ...(approvalValue !== undefined && { isApproved: approvalValue }),
+      updatedAt: new Date(),
+    } as Prisma.CampaignUpdateInput;
+
     return await prisma.campaign.update({
       where: { id: campaignId },
-      data: {
-        ...statusData,
-        updatedAt: new Date(),
-      },
+      data,
       include: {
         organizer: {
           select: {
@@ -611,6 +741,21 @@ export const CampaignRepository = {
             email: true,
           },
         },
+      },
+    });
+  },
+
+  // Update approval status using ApprovalStatus enum
+  updateApproval: async (campaignId: string, approval: ApprovalStatus) => {
+    return await prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        isApproved: approval,
+        updatedAt: new Date(),
+      },
+      include: {
+        medicalEstablishment: true,
+        organizer: { select: { name: true, email: true } },
       },
     });
   },
