@@ -217,6 +217,32 @@ export const BloodService = {
 
     return { items: records, totalAvailableUnits, count: records.length };
   },
+  // Discard a single blood unit by id: set status to DISCARDED and disposed to true
+  discardUnit: async (
+    bloodId: string
+  ): Promise<{ success: boolean; data?: unknown } | null> => {
+    try {
+      const updated = await prisma.blood.update({
+        where: { id: bloodId },
+        data: {
+          status: TestStatus.DISCARDED,
+          disposed: true,
+        },
+      });
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      // If record not found, prisma throws error with code P2025
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        (err as { code?: string }).code === "P2025"
+      ) {
+        return null;
+      }
+      throw err;
+    }
+  },
 };
 
 export default BloodService;

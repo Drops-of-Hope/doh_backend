@@ -18,4 +18,7 @@ router.post("/nearing-expiry", BloodController.listNearingExpiryUnits);
 // POST /api/blood/by-inventory
 router.post("/by-inventory", BloodController.listUnitsByInventory);
 
+// POST /api/blood/discard-unit
+router.post("/discard-unit", BloodController.discardUnit);
+
 export default router;
