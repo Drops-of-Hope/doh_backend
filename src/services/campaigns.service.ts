@@ -75,6 +75,51 @@ export const CampaignService = {
     }
   },
 
+  // Get completed campaigns for a medical establishment
+  getCompletedByMedicalEstablishment: async (
+    medicalEstablishmentId: string,
+    params: { page?: number; limit?: number } = {}
+  ) => {
+    try {
+      const data = await CampaignRepository.findCompletedByMedicalEstablishment(
+        medicalEstablishmentId,
+        params
+      );
+      return { success: true, data };
+    } catch (error) {
+      console.error('Get completed by medical establishment service error:', error);
+      throw new Error('Failed to fetch completed campaigns for medical establishment');
+    }
+  },
+
+  // Get summary metrics for a medical establishment
+  getEstablishmentSummary: async (medicalEstablishmentId: string) => {
+    try {
+      const summary = await CampaignRepository.getEstablishmentSummary(medicalEstablishmentId);
+      return { success: true, data: summary };
+    } catch (error) {
+      console.error('Get establishment summary service error:', error);
+      throw new Error('Failed to fetch establishment summary');
+    }
+  },
+
+  // Get upcoming campaigns for a medical establishment
+  getUpcomingByMedicalEstablishment: async (
+    medicalEstablishmentId: string,
+    params: { featured?: string; limit?: number } = {}
+  ) => {
+    try {
+      const data = await CampaignRepository.findUpcomingByMedicalEstablishment(
+        medicalEstablishmentId,
+        params
+      );
+      return { success: true, data };
+    } catch (error) {
+      console.error('Get upcoming by medical establishment service error:', error);
+      throw new Error('Failed to fetch upcoming campaigns for medical establishment');
+    }
+  },
+
   // Get upcoming campaigns
   getUpcomingCampaigns: async (filters: CampaignFilters) => {
     try {

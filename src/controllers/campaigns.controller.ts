@@ -161,6 +161,82 @@ export const CampaignsController = {
     }
   },
 
+  // GET /campaigns/completed/medical-establishment/:medicalEstablishmentId
+  getCompletedCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+      const { page = '1', limit = '10' } = req.query;
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        return;
+      }
+
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      if (isNaN(pageNum) || isNaN(limitNum) || pageNum <= 0 || limitNum <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid pagination parameters' });
+        return;
+      }
+
+      const result = await CampaignService.getCompletedByMedicalEstablishment(medicalEstablishmentId, { page: pageNum, limit: limitNum });
+      const campaigns = result.data?.campaigns || [];
+      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+
+      res.status(200).json({ success: true, campaigns, data: { campaigns, pagination } });
+    } catch (error) {
+      console.error('Get completed campaigns by medical establishment error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
+  // GET /campaigns/medical-establishment/:medicalEstablishmentId/summary
+  getMedicalEstablishmentSummary: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        return;
+      }
+
+      const result = await CampaignService.getEstablishmentSummary(medicalEstablishmentId);
+      res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+      console.error('Get medical establishment summary error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
+  // GET /campaigns/upcoming/medical-establishment/:medicalEstablishmentId
+  getUpcomingCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+      const { featured, limit = '5' } = req.query;
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        return;
+      }
+
+      const limitNum = parseInt(limit as string);
+      if (isNaN(limitNum) || limitNum <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid limit parameter' });
+        return;
+      }
+
+      const result = await CampaignService.getUpcomingByMedicalEstablishment(medicalEstablishmentId, {
+        featured: featured as string,
+        limit: limitNum,
+      });
+
+      const campaigns = result.data?.campaigns || [];
+      res.status(200).json({ success: true, data: { campaigns } });
+    } catch (error) {
+      console.error('Get upcoming campaigns by medical establishment error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
   // GET /campaigns/upcoming
   getUpcomingCampaigns: async (req: Request, res: Response): Promise<void> => {
     try {
