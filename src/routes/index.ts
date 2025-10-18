@@ -24,6 +24,7 @@ import { authenticateToken } from "../middlewares/authenticateUser.js";
 import type { AuthenticatedRequest } from "../types/auth.types.js";
 import { SSE } from "../utils/sse.js";
 import bloodTransitRoutes from "./bloodTransit.route.js";
+import bloodEquipmentRoutes from "./bloodEquipment.route.js";
 
 const router = Router();
 
@@ -106,5 +107,8 @@ router.get('/sse', authenticateToken, (req: AuthenticatedRequest, res) => {
 	res.write(`event: ping\ndata: {"ok":true}\n\n`);
 	SSE.subscribe(userId, res);
 });
+
+//route to manage blood equipment (CRUD)
+router.use("/blood-equipment", bloodEquipmentRoutes);
 
 export default router;

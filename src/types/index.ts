@@ -125,3 +125,9 @@ export {
   CampaignListItem,
   CampaignStats
 } from './campaignDetail.types.js';
+
+export {
+  BloodEquipment,
+  CreateBloodEquipmentInput,
+  UpdateBloodEquipmentInput
+} from './bloodEquipment.types.js';

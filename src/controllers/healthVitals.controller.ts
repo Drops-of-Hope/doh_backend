@@ -29,4 +29,31 @@ export const HealthVitalsController = {
       res.status(500).json({ message: "Internal server error", error: message });
     }
   },
+
+  getByAppointmentId: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { appointmentId } = req.params;
+
+      // Basic validation
+      if (!appointmentId) {
+        res.status(400).json({ message: "Missing required parameter: appointmentId" });
+        return;
+      }
+
+      const healthVitals = await HealthVitalsService.getByAppointmentId(appointmentId);
+
+      if (!healthVitals || healthVitals.length === 0) {
+        res.status(404).json({ message: "No health vitals found for the given appointment ID" });
+        return;
+      }
+
+      res.status(200).json(healthVitals);
+    } catch (error: unknown) {
+      console.error("Error retrieving health vitals:", error);
+
+      // Narrow type safely
+      const message = error instanceof Error ? error.message : String(error);
+      res.status(500).json({ message: "Internal server error", error: message });
+    }
+  },
 };
