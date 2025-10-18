@@ -162,6 +162,7 @@ export const AppointmentsController = {
         return;
       }
 
+      // include related slot and medicalEstablishment to return richer data
       const appointments = await prisma.appointment.findMany({
         where: { donorId: userId },
         include: {
@@ -178,8 +179,16 @@ export const AppointmentsController = {
           donorId: apt.donorId,
           scheduled: apt.scheduled,
           appointmentDate: apt.appointmentDate,
-          slotId: apt.slotId,
-          medicalEstablishmentId: apt.medicalEstablishmentId,
+          medicalEstablishment: apt.medicalEstablishment ? {
+            id: apt.medicalEstablishment.id,
+            name: apt.medicalEstablishment.name,
+            address: apt.medicalEstablishment.address,
+          } : null,
+          slot: apt.slot ? {
+            id: apt.slot.id,
+            startTime: apt.slot.startTime,
+            endTime: apt.slot.endTime,
+          } : null,
         })),
       });
     } catch (error) {
