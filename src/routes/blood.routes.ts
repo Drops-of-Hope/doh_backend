@@ -3,6 +3,9 @@ import { BloodController } from "../controllers/blood.controller.js";
 
 const router = Router();
 
+// POST /api/blood/stock-counts
+router.post("/stock-counts", BloodController.getStockCounts);
+
 // POST /api/blood/check-availability
 router.post("/check-availability", BloodController.checkAvailability);
 

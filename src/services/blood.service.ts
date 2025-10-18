@@ -27,6 +27,68 @@ function toBloodGroupEnum(input: string | undefined | null): BloodGroup | null {
 }
 
 export const BloodService = {
+  // Aggregate counts for inventory stock
+  getStockCounts: async (
+    inventoryId: string
+  ): Promise<{
+    totalStock: number; // SAFE or PENDING, not consumed/disposed
+    safeUnits: number; // SAFE, not consumed/disposed
+    expiredUnits: number; // not DISCARDED, expiryDate <= today, not consumed/disposed
+    nearingExpiryUnits: number; // not DISCARDED, expiryDate in next 7 days, not consumed/disposed
+  }> => {
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+    const endWindow = new Date(startOfToday);
+    endWindow.setDate(endWindow.getDate() + 7);
+
+    // Total stock: SAFE or PENDING, exclude consumed/disposed
+    const [totalStock, safeUnits, expiredUnits, nearingExpiryUnits] =
+      await Promise.all([
+        prisma.blood.count({
+          where: {
+            inventoryId,
+            status: { in: [TestStatus.SAFE, TestStatus.PENDING] },
+            consumed: false,
+            disposed: false,
+          },
+        }),
+        prisma.blood.count({
+          where: {
+            inventoryId,
+            status: TestStatus.SAFE,
+            consumed: false,
+            disposed: false,
+          },
+        }),
+        prisma.blood.count({
+          where: {
+            inventoryId,
+            status: { not: TestStatus.DISCARDED },
+            consumed: false,
+            disposed: false,
+            expiryDate: { lte: startOfToday },
+          },
+        }),
+        prisma.blood.count({
+          where: {
+            inventoryId,
+            status: { not: TestStatus.DISCARDED },
+            consumed: false,
+            disposed: false,
+            expiryDate: {
+              gt: startOfToday, // not expired today
+              lte: endWindow, // within next 7 days
+            },
+          },
+        }),
+      ]);
+
+    return { totalStock, safeUnits, expiredUnits, nearingExpiryUnits };
+  },
   // Core availability checker
   checkAvailability: async (
     inventoryId: string,

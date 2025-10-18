@@ -2,6 +2,24 @@ import { Request, Response } from "express";
 import BloodService from "../services/blood.service.js";
 
 export const BloodController = {
+  getStockCounts: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { inventory_id } = req.body ?? {};
+
+      if (!inventory_id || typeof inventory_id !== "string") {
+        res
+          .status(400)
+          .json({ message: "inventory_id is required and must be a string" });
+        return;
+      }
+
+      const counts = await BloodService.getStockCounts(inventory_id);
+      res.status(200).json({ message: "Success.", ...counts });
+    } catch (error) {
+      console.error("Error fetching stock counts:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
   checkAvailability: async (req: Request, res: Response): Promise<void> => {
     try {
       const { inventory_id, blood_group, number_of_units_requested } =
@@ -22,12 +40,9 @@ export const BloodController = {
       }
       const num = Number(number_of_units_requested);
       if (!Number.isFinite(num) || num <= 0) {
-        res
-          .status(400)
-          .json({
-            message:
-              "number_of_units_requested must be a number greater than 0",
-          });
+        res.status(400).json({
+          message: "number_of_units_requested must be a number greater than 0",
+        });
         return;
       }
 
