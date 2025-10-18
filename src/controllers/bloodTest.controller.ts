@@ -334,4 +334,18 @@ export const BloodTestController = {
         .json({ message: "Failed to mark blood unit as SAFE", error: errMsg });
     }
   },
+
+  // Get counts related to blood tests
+  getCounts: async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const counts = await BloodTestService.getCounts();
+      res.status(200).json(counts);
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      console.error("Error fetching blood test counts:", errMsg);
+      res
+        .status(500)
+        .json({ message: "Failed to fetch blood test counts", error: errMsg });
+    }
+  },
 };
