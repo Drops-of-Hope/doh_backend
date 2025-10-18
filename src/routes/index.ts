@@ -19,6 +19,7 @@ import bloodDonationRoutes from './bloodDonation.route.js';
 import activitiesRoutes from "./activities.route.js";
 import bloodTestRoutes from "./bloodTest.route.js";
 import bloodEquipmentRoutes from "./bloodEquipment.route.js";
+import donorRoutes from "./donor.route.js";
 
 const router = Router();
 
@@ -78,5 +79,8 @@ router.use("/blood-test", bloodTestRoutes);
 
 //route to manage blood equipment (CRUD)
 router.use("/blood-equipment", bloodEquipmentRoutes);
+
+//route to get donor statistics
+router.use("/donors", donorRoutes);
 
 export default router;

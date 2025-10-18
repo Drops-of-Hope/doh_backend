@@ -131,3 +131,8 @@ export {
   CreateBloodEquipmentInput,
   UpdateBloodEquipmentInput
 } from './bloodEquipment.types.js';
+
+export {
+  DonorCountByDistrict,
+  DonorCountResponse
+} from './donor.types.js';
