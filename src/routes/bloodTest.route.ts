@@ -3,6 +3,9 @@ import { BloodTestController } from "../controllers/bloodTest.controller.js";
 
 const router = Router();
 
+// Route to get counts related to blood tests (global, current month)
+router.get("/counts", BloodTestController.getCounts);
+
 //route to get all blood units thats waiting to be tested for each medical establishment inventory
 router.get("/:inventoryId", BloodTestController.findAll);
 

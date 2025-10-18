@@ -165,4 +165,15 @@ export const BloodTestService = {
       throw new Error("Failed to mark blood unit as SAFE");
     }
   },
+
+  // Get summary counts related to blood tests for current month
+  async getCounts() {
+    try {
+      const counts = await BloodTestRepository.getCountsThisMonth();
+      return counts;
+    } catch (error) {
+      console.error("Error in BloodTestService.getCounts:", error);
+      throw new Error("Failed to fetch blood test counts");
+    }
+  },
 };

@@ -2,6 +2,63 @@ import { prisma } from "../config/db.js";
 import { BloodGroup, Prisma } from "@prisma/client";
 
 export const BloodTestRepository = {
+  // Get summary counts related to blood tests (global, current month)
+  async getCountsThisMonth() {
+    // Calculate start and end of current month
+    const now = new Date();
+    const startOfMonth = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1,
+      0,
+      0,
+      0,
+      0
+    );
+    const startOfNextMonth = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      1,
+      0,
+      0,
+      0,
+      0
+    );
+
+    // Counts
+    const [
+      untestedUnits,
+      testsDoneThisMonth,
+      testsPassedThisMonth,
+      failedTestsThisMonth,
+    ] = await Promise.all([
+      prisma.blood.count({
+        where: { status: "PENDING" },
+      }),
+      prisma.bloodTest.count({
+        where: { testDateTime: { gte: startOfMonth, lt: startOfNextMonth } },
+      }),
+      prisma.bloodTest.count({
+        where: {
+          status: "SAFE",
+          testDateTime: { gte: startOfMonth, lt: startOfNextMonth },
+        },
+      }),
+      prisma.bloodTest.count({
+        where: {
+          status: "TESTED",
+          testDateTime: { gte: startOfMonth, lt: startOfNextMonth },
+        },
+      }),
+    ]);
+
+    return {
+      untested_units: untestedUnits,
+      tests_done_this_month: testsDoneThisMonth,
+      tests_passed_this_month: testsPassedThisMonth,
+      failed_tests_this_month: failedTestsThisMonth,
+    };
+  },
   // Get all blood tests pending for a specific inventory
   async findAll(inventoryId: string) {
     return prisma.blood.findMany({
