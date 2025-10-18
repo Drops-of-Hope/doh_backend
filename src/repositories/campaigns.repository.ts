@@ -90,6 +90,164 @@ export const CampaignRepository = {
     };
   },
 
+  // Find completed campaigns for a specific medical establishment (past, accepted)
+  findCompletedByMedicalEstablishment: async (
+    medicalEstablishmentId: string,
+    params: { page?: number; limit?: number } = {}
+  ) => {
+    const { page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+    const now = new Date();
+
+    const where: Prisma.CampaignWhereInput = {
+      medicalEstablishmentId,
+      isApproved: ApprovalStatus.ACCEPTED,
+      endTime: { lt: now },
+    };
+
+    const [campaigns, totalCount] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { endTime: 'desc' },
+        include: {
+          organizer: { select: { id: true, name: true, email: true } },
+          medicalEstablishment: { select: { id: true, name: true, address: true } },
+        },
+      }),
+      prisma.campaign.count({ where }),
+    ]);
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        status: 'Completed' as const,
+        date: campaign.endTime,
+        unitsCollected: campaign.actualDonors,
+        expectedDonors: campaign.expectedDonors,
+        actualDonors: campaign.actualDonors,
+        location: campaign.location,
+        medicalEstablishment: campaign.medicalEstablishment,
+        organizer: campaign.organizer.name,
+      })),
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  },
+
+  // Get summary metrics for a medical establishment
+  getEstablishmentSummary: async (medicalEstablishmentId: string) => {
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const [
+      pendingRequests,
+      upcomingThisMonth,
+      totalCampaignsHeld,
+      totalCampaignDonors,
+    ] = await Promise.all([
+      // Pending organizer requests
+      prisma.campaign.count({
+        where: {
+          medicalEstablishmentId,
+          isApproved: ApprovalStatus.PENDING,
+        },
+      }),
+
+      // Upcoming campaigns scheduled this month
+      prisma.campaign.count({
+        where: {
+          medicalEstablishmentId,
+          isActive: true,
+          isApproved: ApprovalStatus.ACCEPTED,
+          startTime: { gte: monthStart, lte: monthEnd },
+        },
+      }),
+
+      // Total campaigns held (completed, all time)
+      prisma.campaign.count({
+        where: {
+          medicalEstablishmentId,
+          isApproved: ApprovalStatus.ACCEPTED,
+          endTime: { lt: now },
+        },
+      }),
+
+      // Total donors from recent campaigns (last 30 days)
+      prisma.campaignParticipation.count({
+        where: {
+          donationCompleted: true,
+          campaign: {
+            medicalEstablishmentId,
+            isApproved: ApprovalStatus.ACCEPTED,
+            startTime: { gte: thirtyDaysAgo },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      pendingRequests,
+      upcomingCampaigns: upcomingThisMonth,
+      totalCampaignsHeld,
+      totalCampaignDonors,
+    };
+  },
+
+  // Find upcoming campaigns for a specific medical establishment
+  findUpcomingByMedicalEstablishment: async (
+    medicalEstablishmentId: string,
+    params: { featured?: string; limit?: number } = {}
+  ) => {
+    const { featured, limit = 5 } = params;
+
+    const where: Prisma.CampaignWhereInput = {
+      isActive: true,
+      startTime: { gte: new Date() },
+      isApproved: ApprovalStatus.ACCEPTED,
+      medicalEstablishmentId,
+    };
+
+    if (featured === 'true') {
+      where.expectedDonors = { gte: 50 };
+    }
+
+    const campaigns = await prisma.campaign.findMany({
+      where,
+      include: {
+        medicalEstablishment: true,
+        organizer: { select: { name: true } },
+      },
+      orderBy: { startTime: 'asc' },
+      take: limit,
+    });
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        type: campaign.type,
+        location: campaign.location,
+        description: campaign.description,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        expectedDonors: campaign.expectedDonors,
+        actualDonors: campaign.actualDonors,
+        imageUrl: campaign.imageUrl,
+        organizer: campaign.organizer.name,
+        medicalEstablishment: campaign.medicalEstablishment,
+      })),
+    };
+  },
+
   // Find upcoming campaigns
   findUpcoming: async (filters: CampaignFilters) => {
     const { featured, limit = 5 } = filters;
@@ -178,6 +336,122 @@ export const CampaignRepository = {
         total: totalCount,
         totalPages: Math.ceil(totalCount / limit),
       },
+    };
+  },
+
+  // Find campaigns pending approval
+  findPending: async (params: { page?: number; limit?: number } = {}) => {
+    const { page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CampaignWhereInput = {
+      isApproved: ApprovalStatus.PENDING as unknown as Prisma.EnumApprovalStatusFilter,
+    } as Prisma.CampaignWhereInput;
+
+    const [campaigns, totalCount] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          medicalEstablishment: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+            },
+          },
+          _count: {
+            select: { participations: true },
+          },
+        },
+      }),
+      prisma.campaign.count({ where }),
+    ]);
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        location: campaign.location,
+        expectedDonors: campaign.expectedDonors,
+        contactPersonName: campaign.contactPersonName,
+        contactPersonPhone: campaign.contactPersonPhone,
+        requirements: campaign.requirements,
+        isApproved: campaign.isApproved,
+        isActive: campaign.isActive,
+        organizer: campaign.organizer,
+        medicalEstablishment: campaign.medicalEstablishment,
+        participantsCount: campaign._count.participations,
+        createdAt: campaign.createdAt,
+        updatedAt: campaign.updatedAt,
+      })),
+      pagination: {
+        page,
+        limit,
+        total: totalCount,
+        totalPages: Math.ceil(totalCount / limit),
+      },
+    };
+  },
+
+  // Find campaigns pending approval for a specific blood bank
+  findPendingByMedicalEstablishment: async (medicalEstablishmentId: string, params: { page?: number; limit?: number } = {}) => {
+    const { page = 1, limit = 10 } = params;
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.CampaignWhereInput = {
+      medicalEstablishmentId,
+      isApproved: ApprovalStatus.PENDING as unknown as Prisma.EnumApprovalStatusFilter,
+    } as Prisma.CampaignWhereInput;
+
+    const [campaigns, totalCount] = await Promise.all([
+      prisma.campaign.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          organizer: { select: { id: true, name: true, email: true } },
+          medicalEstablishment: { select: { id: true, name: true, address: true } },
+          _count: { select: { participations: true } },
+        },
+      }),
+      prisma.campaign.count({ where }),
+    ]);
+
+    return {
+      campaigns: campaigns.map(campaign => ({
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        startTime: campaign.startTime,
+        endTime: campaign.endTime,
+        location: campaign.location,
+        expectedDonors: campaign.expectedDonors,
+        contactPersonName: campaign.contactPersonName,
+        contactPersonPhone: campaign.contactPersonPhone,
+        requirements: campaign.requirements,
+        isApproved: campaign.isApproved,
+        isActive: campaign.isActive,
+        organizer: campaign.organizer,
+        medicalEstablishment: campaign.medicalEstablishment,
+        participantsCount: campaign._count.participations,
+        createdAt: campaign.createdAt,
+        updatedAt: campaign.updatedAt,
+      })),
+      pagination: { page, limit, total: totalCount, totalPages: Math.ceil(totalCount / limit) },
     };
   },
 
@@ -597,13 +871,27 @@ export const CampaignRepository = {
   },
 
   // Update campaign status
-  updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: ApprovalStatus }) => {
+  updateStatus: async (campaignId: string, statusData: { isActive?: boolean; isApproved?: ApprovalStatus | boolean | string }) => {
+    // Normalize isApproved to ApprovalStatus if necessary
+    let approvalValue: ApprovalStatus | undefined = undefined;
+    if (statusData.isApproved !== undefined) {
+      const v = statusData.isApproved;
+      if (typeof v === 'boolean') approvalValue = v ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+      else if (typeof v === 'string') {
+        const up = v.toUpperCase();
+        if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') approvalValue = up as ApprovalStatus;
+      } else approvalValue = v as ApprovalStatus;
+    }
+
+    const data: Prisma.CampaignUpdateInput = {
+      ...(statusData.isActive !== undefined && { isActive: statusData.isActive }),
+      ...(approvalValue !== undefined && { isApproved: approvalValue }),
+      updatedAt: new Date(),
+    } as Prisma.CampaignUpdateInput;
+
     return await prisma.campaign.update({
       where: { id: campaignId },
-      data: {
-        ...statusData,
-        updatedAt: new Date(),
-      },
+      data,
       include: {
         organizer: {
           select: {
@@ -611,6 +899,21 @@ export const CampaignRepository = {
             email: true,
           },
         },
+      },
+    });
+  },
+
+  // Update approval status using ApprovalStatus enum
+  updateApproval: async (campaignId: string, approval: ApprovalStatus) => {
+    return await prisma.campaign.update({
+      where: { id: campaignId },
+      data: {
+        isApproved: approval,
+        updatedAt: new Date(),
+      },
+      include: {
+        medicalEstablishment: true,
+        organizer: { select: { name: true, email: true } },
       },
     });
   },

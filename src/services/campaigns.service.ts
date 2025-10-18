@@ -75,6 +75,51 @@ export const CampaignService = {
     }
   },
 
+  // Get completed campaigns for a medical establishment
+  getCompletedByMedicalEstablishment: async (
+    medicalEstablishmentId: string,
+    params: { page?: number; limit?: number } = {}
+  ) => {
+    try {
+      const data = await CampaignRepository.findCompletedByMedicalEstablishment(
+        medicalEstablishmentId,
+        params
+      );
+      return { success: true, data };
+    } catch (error) {
+      console.error('Get completed by medical establishment service error:', error);
+      throw new Error('Failed to fetch completed campaigns for medical establishment');
+    }
+  },
+
+  // Get summary metrics for a medical establishment
+  getEstablishmentSummary: async (medicalEstablishmentId: string) => {
+    try {
+      const summary = await CampaignRepository.getEstablishmentSummary(medicalEstablishmentId);
+      return { success: true, data: summary };
+    } catch (error) {
+      console.error('Get establishment summary service error:', error);
+      throw new Error('Failed to fetch establishment summary');
+    }
+  },
+
+  // Get upcoming campaigns for a medical establishment
+  getUpcomingByMedicalEstablishment: async (
+    medicalEstablishmentId: string,
+    params: { featured?: string; limit?: number } = {}
+  ) => {
+    try {
+      const data = await CampaignRepository.findUpcomingByMedicalEstablishment(
+        medicalEstablishmentId,
+        params
+      );
+      return { success: true, data };
+    } catch (error) {
+      console.error('Get upcoming by medical establishment service error:', error);
+      throw new Error('Failed to fetch upcoming campaigns for medical establishment');
+    }
+  },
+
   // Get upcoming campaigns
   getUpcomingCampaigns: async (filters: CampaignFilters) => {
     try {
@@ -144,7 +189,7 @@ export const CampaignService = {
         contactPersonName: campaignData.contactPersonName,
         contactPersonPhone: campaignData.contactPersonPhone,
         requirements: campaignData.requirements,
-        isApproved: ApprovalStatus.PENDING, // Requires approval
+  isApproved: ApprovalStatus.PENDING, // Requires approval
         organizer: { connect: { id: organizerId } },
         medicalEstablishment: { connect: { id: campaignData.medicalEstablishmentId } },
       });
@@ -169,20 +214,19 @@ export const CampaignService = {
         throw new Error(permissions.reasons?.[0] || 'Cannot edit this campaign');
       }
 
-      // Map boolean/string to enum if present
-      const data: Prisma.CampaignUpdateInput = { ...updateData } as Prisma.CampaignUpdateInput;
+      // Normalize updateData.isApproved to ApprovalStatus if provided
       if (updateData.isApproved !== undefined) {
-        let mapped: ApprovalStatus | undefined;
         const v = updateData.isApproved;
-        if (typeof v === 'boolean') mapped = v ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
+        if (typeof v === 'boolean') updateData.isApproved = v ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
         else if (typeof v === 'string') {
           const up = v.toUpperCase();
-          if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') mapped = up as ApprovalStatus;
+          if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') updateData.isApproved = up as ApprovalStatus;
         }
-        if (mapped) data.isApproved = mapped;
       }
 
-      const campaign = await CampaignRepository.update(campaignId, data);
+      // Cast to Prisma.CampaignUpdateInput via unknown to avoid explicit `any`
+      const updatePayload = updateData as unknown as Prisma.CampaignUpdateInput;
+      const campaign = await CampaignRepository.update(campaignId, updatePayload);
 
       return {
         success: true,
@@ -255,6 +299,117 @@ export const CampaignService = {
     } catch (error) {
       console.error('Campaign analytics service error:', error);
       throw new Error('Failed to fetch campaign analytics');
+    }
+  },
+
+  // Get full campaign details by id
+  getCampaignDetails: async (campaignId: string) => {
+    try {
+      const campaign = await CampaignRepository.findById(campaignId);
+      if (!campaign) {
+        return { success: false, error: 'Campaign not found' };
+      }
+
+  // repository has more analytics if needed; currently compute basic stats from participations
+
+      // Count attendance and donations via participations provided on campaign
+      const attendanceCount = campaign.participations.filter(p => p.attendanceMarked).length;
+      const donationCount = campaign.participations.filter(p => p.donationCompleted).length;
+
+      const goalProgress = campaign.expectedDonors > 0
+        ? Math.round((donationCount / campaign.expectedDonors) * 100)
+        : 0;
+
+      const campaignDetails = {
+        id: campaign.id,
+        title: campaign.title,
+        description: campaign.description,
+        location: campaign.location,
+        startDate: campaign.startTime.toISOString(),
+        endDate: campaign.endTime.toISOString(),
+        goalBloodUnits: campaign.expectedDonors,
+        currentBloodUnits: donationCount,
+        status: campaign.isActive ? 'active' : 'completed',
+        organizer: {
+          id: campaign.organizerId,
+          name: campaign.organizer.name,
+          email: campaign.organizer.email,
+          phone: campaign.contactPersonPhone,
+          organization: 'Department of Health',
+        },
+        medicalEstablishment: {
+          id: campaign.medicalEstablishment.id,
+          name: campaign.medicalEstablishment.name,
+          address: campaign.medicalEstablishment.address,
+          contactNumber: campaign.contactPersonPhone,
+        },
+        requirements: campaign.requirements || {},
+        stats: {
+          totalDonors: campaign.participations.length,
+          totalAttendance: attendanceCount,
+          screenedPassed: attendanceCount,
+          currentDonations: donationCount,
+          goalProgress,
+        },
+        createdAt: campaign.createdAt.toISOString(),
+        updatedAt: campaign.updatedAt.toISOString(),
+      };
+
+      return { success: true, campaign: campaignDetails };
+    } catch (error) {
+      console.error('Get campaign details service error:', error);
+      throw new Error('Failed to fetch campaign details');
+    }
+  },
+
+  // Get pending campaigns filtered by blood bank id
+  getPendingByMedicalEstablishment: async (medicalEstablishmentId: string, params: { page?: number; limit?: number } = {}) => {
+    try {
+      const data = await CampaignRepository.findPendingByMedicalEstablishment(medicalEstablishmentId, params);
+      return { success: true, data };
+    } catch (error) {
+      console.error('Get pending by medical establishment service error:', error);
+      throw new Error('Failed to fetch pending campaigns for medical establishment');
+    }
+  },
+
+  // Set approval status for a campaign
+  setCampaignApproval: async (campaignId: string, approval: string, userId?: string) => {
+    try {
+      // Normalize approval value
+      const normalized = approval.toString().toUpperCase();
+
+      let statusValue;
+      if (normalized === 'ACCEPTED' || normalized === 'APPROVED') {
+        statusValue = ApprovalStatus.ACCEPTED;
+      } else if (normalized === 'REJECTED' || normalized === 'CANCELLED') {
+        statusValue = ApprovalStatus.CANCELLED;
+      } else {
+        return { success: false, statusCode: 400, error: 'Invalid approval value' };
+      }
+
+      // Update status via repository (repository.updateStatus accepts statusData)
+  const updated = await CampaignRepository.updateApproval(campaignId, statusValue);
+
+      // Optionally create activity/notification (best-effort)
+      try {
+        const actorId = userId || 'system';
+        const { ActivityService } = await import('../services/activity.service.js');
+        await ActivityService.createActivity({
+          userId: actorId,
+          type: (statusValue === ApprovalStatus.ACCEPTED ? 'CAMPAIGN_APPROVED' : 'CAMPAIGN_REJECTED') as unknown as never,
+          title: statusValue === ApprovalStatus.ACCEPTED ? 'Campaign Approved' : 'Campaign Rejected',
+          description: `Campaign ${updated.title} was ${statusValue.toLowerCase()} by ${actorId}`,
+          metadata: { campaignId, approval: statusValue },
+        });
+      } catch (actErr) {
+        console.warn('Activity creation failed:', actErr);
+      }
+
+      return { success: true, campaign: updated };
+    } catch (error) {
+      console.error('Set campaign approval service error:', error);
+      return { success: false, error: 'Failed to update campaign approval' };
     }
   },
 
@@ -382,6 +537,35 @@ export const CampaignService = {
     } catch (error) {
       console.error('Get attendance service error:', error);
       throw new Error('Failed to fetch campaign attendance');
+    }
+  },
+
+  // Get pending campaigns (awaiting approval)
+  getPendingCampaigns: async (filters: { page?: number; limit?: number }) => {
+    try {
+      const pending = await CampaignRepository.findPending(filters);
+      if (!pending) {
+        return {
+          success: true,
+          data: {
+            campaigns: [],
+            pagination: {
+              page: filters.page || 1,
+              limit: filters.limit || 10,
+              total: 0,
+              totalPages: 0,
+            },
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: pending,
+      };
+    } catch (error) {
+      console.error('Get pending campaigns service error:', error);
+      throw new Error('Failed to fetch pending campaigns');
     }
   },
 

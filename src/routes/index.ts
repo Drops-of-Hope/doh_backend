@@ -23,6 +23,9 @@ import devicesRoutes from "./devices.route.js";
 import { authenticateToken } from "../middlewares/authenticateUser.js";
 import type { AuthenticatedRequest } from "../types/auth.types.js";
 import { SSE } from "../utils/sse.js";
+import bloodTransitRoutes from "./bloodTransit.route.js";
+import bloodEquipmentRoutes from "./bloodEquipment.route.js";
+import donorRoutes from "./donor.route.js";
 
 const router = Router();
 
@@ -86,6 +89,9 @@ router.use("/blood", bloodRoutes);
 // Device routes (push token registration)
 router.use("/devices", devicesRoutes);
 
+// Blood Transit routes
+router.use("/blood-bank", bloodTransitRoutes);
+
 // SSE stream for authenticated user
 router.get('/sse', authenticateToken, (req: AuthenticatedRequest, res) => {
 	const userId = req.user?.id;
@@ -102,5 +108,11 @@ router.get('/sse', authenticateToken, (req: AuthenticatedRequest, res) => {
 	res.write(`event: ping\ndata: {"ok":true}\n\n`);
 	SSE.subscribe(userId, res);
 });
+
+//route to manage blood equipment (CRUD)
+router.use("/blood-equipment", bloodEquipmentRoutes);
+
+//route to get donor statistics
+router.use("/donors", donorRoutes);
 
 export default router;

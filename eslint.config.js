@@ -1,31 +1,39 @@
 // eslint.config.js
-import js from '@eslint/js';
-import tseslint from 'typescript-eslint';
+import js from "@eslint/js";
+import tseslint from "typescript-eslint";
 
 export default [
   // Ignore compiled output
-  { ignores: ['dist/'] },
+  { ignores: ["dist/"] },
   // JS recommended rules (scoped via files below to avoid linting dist)
-  { ...js.configs.recommended, files: ['src//*.ts'] },
+  { ...js.configs.recommended, files: ["src//*.ts"] },
   // TypeScript recommended
   ...tseslint.configs.recommended,
   {
-    files: ['src//*.ts'],
+    files: ["src//*.ts"],
     languageOptions: {
       parserOptions: {
-        project: './tsconfig.json',
+        project: "./tsconfig.json",
       },
       // Node environment globals
       globals: {
-        console: 'readonly',
-        process: 'readonly',
-        module: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
+        console: "readonly",
+        process: "readonly",
+        module: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
+      },
+      // Node environment globals
+      globals: {
+        console: "readonly",
+        process: "readonly",
+        module: "readonly",
+        __dirname: "readonly",
+        __filename: "readonly",
       },
     },
     rules: {
-      '@typescript-eslint/no-require-imports': 'off', // if you MUST use require()
+      "@typescript-eslint/no-require-imports": "off", // if you MUST use require()
       // Your custom rules
     },
   },

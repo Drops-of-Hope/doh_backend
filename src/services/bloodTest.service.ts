@@ -1,5 +1,8 @@
-// src/services/bloodTest.service.ts
+// Clean implementation with HIV-positive side effects
 import { BloodTestRepository } from "../repositories/bloodTest.repository.js";
+import { EligibilityService } from "./eligibility.service.js";
+import { NotificationService } from "./notification.service.js";
+import { NotificationType, Prisma } from "@prisma/client";
 
 export const BloodTestService = {
   // Get all blood units awaiting testing for a specific medical establishment inventory
@@ -62,6 +65,68 @@ export const BloodTestService = {
       }
 
       const updated = await BloodTestRepository.upsertHivTest(bloodId, hivTest);
+
+      // If HIV is positive (true), mark donor ineligible for 60 years and notify them
+      if (hivTest === true) {
+        try {
+          // Try to resolve the userId via blood -> bloodDonation -> user
+          // Prisma type for the returned payload including nested relations
+          type HivUpsertResult = Prisma.BloodTestGetPayload<{
+            include: {
+              blood: {
+                include: {
+                  bloodDonation: {
+                    include: {
+                      user: true;
+                    };
+                  };
+                };
+              };
+            };
+          }>;
+
+          const userId =
+            (updated as HivUpsertResult)?.blood?.bloodDonation?.user?.id ??
+            null;
+
+          if (userId) {
+            // Calculate +60 years from today
+            const nextEligibleDate = new Date();
+            nextEligibleDate.setFullYear(nextEligibleDate.getFullYear() + 60);
+
+            // Update eligibility via EligibilityService
+            await EligibilityService.updateNextEligible({
+              userId,
+              nextEligible: nextEligibleDate.toISOString(),
+            });
+
+            // Create a notification for the donor
+            await NotificationService.createNotification({
+              userId,
+              type: NotificationType.GENERAL,
+              title: "Blood Rejected",
+              message:
+                "Your donated blood unit was rejected. Please contact the blood bank for confidential information.",
+              metadata: {
+                reason: "HIV_POSITIVE",
+                bloodId,
+              },
+            });
+          } else {
+            console.warn(
+              "Could not determine userId from bloodId when HIV test was true",
+              { bloodId }
+            );
+          }
+        } catch (sideEffectErr) {
+          console.error(
+            "Failed to apply HIV-positive side effects (eligibility/notification):",
+            sideEffectErr
+          );
+          // Do not block main update on side-effect failures
+        }
+      }
+
       return updated;
     } catch (error) {
       console.error("Error in BloodTestService.updateHivTest:", error);
@@ -163,6 +228,17 @@ export const BloodTestService = {
     } catch (error) {
       console.error("Error in BloodTestService.markAsSafe:", error);
       throw new Error("Failed to mark blood unit as SAFE");
+    }
+  },
+
+  // Get summary counts related to blood tests for current month
+  async getCounts() {
+    try {
+      const counts = await BloodTestRepository.getCountsThisMonth();
+      return counts;
+    } catch (error) {
+      console.error("Error in BloodTestService.getCounts:", error);
+      throw new Error("Failed to fetch blood test counts");
     }
   },
 };

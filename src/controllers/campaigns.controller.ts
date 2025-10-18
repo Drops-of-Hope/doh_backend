@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { PrismaClient, ParticipationStatus, ApprovalStatus, Prisma } from "@prisma/client";
+import { PrismaClient, ParticipationStatus, Prisma, ApprovalStatus } from "@prisma/client";
 import { CampaignService } from "../services/campaigns.service.js";
 import { PushService } from "../services/push.service.js";
 import { SSE } from "../utils/sse.js";
@@ -73,7 +73,7 @@ export const CampaignsController = {
         // Fallback to direct Prisma query
         const [campaignResults, count] = await Promise.all([
           prisma.campaign.findMany({
-            where,
+            where: where as unknown as Prisma.CampaignWhereInput,
             include: {
               medicalEstablishment: true,
               organizer: {
@@ -93,7 +93,7 @@ export const CampaignsController = {
             skip,
             take: limitNum,
           }),
-          prisma.campaign.count({ where }),
+          prisma.campaign.count({ where: where as unknown as Prisma.CampaignWhereInput }),
         ]);
 
         campaigns = campaignResults.map(campaign => ({
@@ -161,6 +161,82 @@ export const CampaignsController = {
     }
   },
 
+  // GET /campaigns/completed/medical-establishment/:medicalEstablishmentId
+  getCompletedCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+      const { page = '1', limit = '10' } = req.query;
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        return;
+      }
+
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+      if (isNaN(pageNum) || isNaN(limitNum) || pageNum <= 0 || limitNum <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid pagination parameters' });
+        return;
+      }
+
+      const result = await CampaignService.getCompletedByMedicalEstablishment(medicalEstablishmentId, { page: pageNum, limit: limitNum });
+      const campaigns = result.data?.campaigns || [];
+      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+
+      res.status(200).json({ success: true, campaigns, data: { campaigns, pagination } });
+    } catch (error) {
+      console.error('Get completed campaigns by medical establishment error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
+  // GET /campaigns/medical-establishment/:medicalEstablishmentId/summary
+  getMedicalEstablishmentSummary: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        return;
+      }
+
+      const result = await CampaignService.getEstablishmentSummary(medicalEstablishmentId);
+      res.status(200).json({ success: true, data: result.data });
+    } catch (error) {
+      console.error('Get medical establishment summary error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
+  // GET /campaigns/upcoming/medical-establishment/:medicalEstablishmentId
+  getUpcomingCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+      const { featured, limit = '5' } = req.query;
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        return;
+      }
+
+      const limitNum = parseInt(limit as string);
+      if (isNaN(limitNum) || limitNum <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid limit parameter' });
+        return;
+      }
+
+      const result = await CampaignService.getUpcomingByMedicalEstablishment(medicalEstablishmentId, {
+        featured: featured as string,
+        limit: limitNum,
+      });
+
+      const campaigns = result.data?.campaigns || [];
+      res.status(200).json({ success: true, data: { campaigns } });
+    } catch (error) {
+      console.error('Get upcoming campaigns by medical establishment error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
   // GET /campaigns/upcoming
   getUpcomingCampaigns: async (req: Request, res: Response): Promise<void> => {
     try {
@@ -200,7 +276,7 @@ export const CampaignsController = {
         };
 
         const campaignResults = await prisma.campaign.findMany({
-          where,
+          where: where as unknown as Prisma.CampaignWhereInput,
           include: {
             medicalEstablishment: true,
             organizer: {
@@ -357,6 +433,37 @@ export const CampaignsController = {
     }
   },
 
+  // GET /campaigns/pending - Get campaigns pending approval (admin/organizer)
+  getPendingCampaigns: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { page = "1", limit = "10" } = req.query;
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+
+      if (isNaN(pageNum) || pageNum <= 0 || isNaN(limitNum) || limitNum <= 0) {
+        res.status(400).json({ success: false, error: "Invalid pagination parameters", campaigns: [], data: { campaigns: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0 } } });
+        return;
+      }
+
+      const result = await CampaignService.getPendingCampaigns({ page: pageNum, limit: limitNum });
+
+      const campaigns = result.data?.campaigns || [];
+      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+
+      res.status(200).json({
+        success: true,
+        campaigns,
+        data: {
+          campaigns,
+          pagination,
+        },
+      });
+    } catch (error) {
+      console.error("Get pending campaigns error:", error);
+      res.status(500).json({ success: false, error: "Internal server error", campaigns: [], data: { campaigns: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0 } } });
+    }
+  },
+
   // GET /campaigns/organizer/:organizerId
   getCampaignsByOrganizer: async (req: Request, res: Response): Promise<void> => {
     try {
@@ -443,6 +550,44 @@ export const CampaignsController = {
         error: "Internal server error",
         message: "Failed to get campaigns",
       });
+    }
+  },
+
+  // GET /campaigns/pending/medical-establishment/:medicalEstablishmentId
+  getPendingCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.params;
+      const { page = '1', limit = '10' } = req.query;
+
+      const pageNum = parseInt(page as string);
+      const limitNum = parseInt(limit as string);
+
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        return;
+      }
+
+      if (isNaN(pageNum) || isNaN(limitNum) || pageNum <= 0 || limitNum <= 0) {
+        res.status(400).json({ success: false, error: 'Invalid pagination parameters' });
+        return;
+      }
+
+      const result = await CampaignService.getPendingByMedicalEstablishment(medicalEstablishmentId, { page: pageNum, limit: limitNum });
+
+      const campaigns = result.data?.campaigns || [];
+      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+
+      res.status(200).json({
+        success: true,
+        campaigns,
+        data: {
+          campaigns,
+          pagination,
+        },
+      });
+    } catch (error) {
+      console.error('Get pending campaigns by medical establishment error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
     }
   },
 
@@ -885,6 +1030,31 @@ export const CampaignsController = {
     }
   },
 
+  // PATCH /campaigns/:campaignId/approval
+  setCampaignApproval: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+    try {
+      const { campaignId } = req.params;
+      const { approval } = req.body; // expected 'ACCEPTED' or 'REJECTED' (or 'CANCELLED')
+
+      if (!campaignId || !approval) {
+        res.status(400).json({ success: false, error: 'campaignId and approval are required' });
+        return;
+      }
+
+  const result = await CampaignService.setCampaignApproval(campaignId, approval as string, (req as AuthenticatedRequest).user?.id);
+
+      if (!result.success) {
+        res.status(result.statusCode || 400).json({ success: false, error: result.error || 'Failed to set approval' });
+        return;
+      }
+
+      res.status(200).json({ success: true, campaign: result.campaign });
+    } catch (error) {
+      console.error('Set campaign approval error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error' });
+    }
+  },
+
   // POST /campaigns/:campaignId/manual-attendance
   manualAttendanceMarking: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
     try {
@@ -1100,7 +1270,7 @@ export const CampaignsController = {
 
       // Reset approval if significant changes made
       if (needsReApproval) {
-        updateData.isApproved = false;
+        updateData.isApproved = ApprovalStatus.PENDING;
       }
 
       const updatedCampaign = await prisma.campaign.update({
@@ -1345,115 +1515,14 @@ export const CampaignsController = {
   getCampaignDetails: async (req: Request, res: Response): Promise<void> => {
     try {
       const { id } = req.params;
+      const result = await CampaignService.getCampaignDetails(id);
 
-      const [campaign, participationStats] = await Promise.all([
-        prisma.campaign.findUnique({
-          where: { id },
-          include: {
-            medicalEstablishment: {
-              select: {
-                id: true,
-                name: true,
-                address: true,
-                email: true,
-              },
-            },
-            organizer: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-            _count: {
-              select: {
-                participations: true,
-              },
-            },
-          },
-        }),
-        prisma.campaignParticipation.aggregate({
-          where: { campaignId: id },
-          _count: {
-            id: true,
-          },
-        }),
-      ]);
-
-      if (!campaign) {
-        res.status(404).json({
-          success: false,
-          error: "Campaign not found",
-          message: "The specified campaign does not exist",
-        });
+      if (!result.success) {
+        res.status(404).json({ success: false, error: result.error || 'Campaign not found' });
         return;
       }
 
-      // Get additional stats
-      const [attendanceCount, donationCount] = await Promise.all([
-        prisma.campaignParticipation.count({
-          where: { 
-            campaignId: id,
-            attendanceMarked: true,
-          },
-        }),
-        prisma.campaignParticipation.count({
-          where: { 
-            campaignId: id,
-            donationCompleted: true,
-          },
-        }),
-      ]);
-
-      // Calculate goal progress
-      const goalProgress = campaign.expectedDonors > 0 
-        ? Math.round((donationCount / campaign.expectedDonors) * 100)
-        : 0;
-
-      // Build response according to requirements
-      const campaignDetails = {
-        id: campaign.id,
-        title: campaign.title,
-        description: campaign.description,
-        location: campaign.location,
-        startDate: campaign.startTime.toISOString(),
-        endDate: campaign.endTime.toISOString(),
-        goalBloodUnits: campaign.expectedDonors, // Using expectedDonors as goal
-        currentBloodUnits: donationCount,
-        status: campaign.isActive ? 'active' : 'completed',
-        organizer: {
-          id: campaign.organizer.id,
-          name: campaign.organizer.name,
-          email: campaign.organizer.email,
-          phone: campaign.contactPersonPhone,
-          organization: "Department of Health", // Default organization
-        },
-        medicalEstablishment: {
-          id: campaign.medicalEstablishment.id,
-          name: campaign.medicalEstablishment.name,
-          address: campaign.medicalEstablishment.address,
-          contactNumber: campaign.contactPersonPhone,
-        },
-        requirements: {
-          bloodTypes: ["A+", "B+", "O+", "AB+", "A-", "B-", "O-", "AB-"], // Default to all types
-          ageRange: {
-            min: 18,
-            max: 65,
-          },
-          minimumWeight: 50,
-        },
-        stats: {
-          totalDonors: participationStats._count.id,
-          totalAttendance: attendanceCount,
-          screenedPassed: attendanceCount, // Assuming all attendees passed screening
-          currentDonations: donationCount,
-          goalProgress,
-        },
-        createdAt: campaign.createdAt.toISOString(),
-        updatedAt: campaign.updatedAt.toISOString(),
-      };
-
-      res.status(200).json(campaignDetails);
+      res.status(200).json(result.campaign);
     } catch (error) {
       console.error("Get campaign details error:", error);
       res.status(500).json({
