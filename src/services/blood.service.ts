@@ -27,6 +27,68 @@ function toBloodGroupEnum(input: string | undefined | null): BloodGroup | null {
 }
 
 export const BloodService = {
+  // Aggregate counts for inventory stock
+  getStockCounts: async (
+    inventoryId: string
+  ): Promise<{
+    totalStock: number; // SAFE or PENDING, not consumed/disposed
+    safeUnits: number; // SAFE, not consumed/disposed
+    expiredUnits: number; // not DISCARDED, expiryDate <= today, not consumed/disposed
+    nearingExpiryUnits: number; // not DISCARDED, expiryDate in next 7 days, not consumed/disposed
+  }> => {
+    const now = new Date();
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+    const endWindow = new Date(startOfToday);
+    endWindow.setDate(endWindow.getDate() + 7);
+
+    // Total stock: SAFE or PENDING, exclude consumed/disposed
+    const [totalStock, safeUnits, expiredUnits, nearingExpiryUnits] =
+      await Promise.all([
+        prisma.blood.count({
+          where: {
+            inventoryId,
+            status: { in: [TestStatus.SAFE, TestStatus.PENDING] },
+            consumed: false,
+            disposed: false,
+          },
+        }),
+        prisma.blood.count({
+          where: {
+            inventoryId,
+            status: TestStatus.SAFE,
+            consumed: false,
+            disposed: false,
+          },
+        }),
+        prisma.blood.count({
+          where: {
+            inventoryId,
+            status: { not: TestStatus.DISCARDED },
+            consumed: false,
+            disposed: false,
+            expiryDate: { lte: startOfToday },
+          },
+        }),
+        prisma.blood.count({
+          where: {
+            inventoryId,
+            status: { not: TestStatus.DISCARDED },
+            consumed: false,
+            disposed: false,
+            expiryDate: {
+              gt: startOfToday, // not expired today
+              lte: endWindow, // within next 7 days
+            },
+          },
+        }),
+      ]);
+
+    return { totalStock, safeUnits, expiredUnits, nearingExpiryUnits };
+  },
   // Core availability checker
   checkAvailability: async (
     inventoryId: string,
@@ -216,6 +278,32 @@ export const BloodService = {
     }, 0);
 
     return { items: records, totalAvailableUnits, count: records.length };
+  },
+  // Discard a single blood unit by id: set status to DISCARDED and disposed to true
+  discardUnit: async (
+    bloodId: string
+  ): Promise<{ success: boolean; data?: unknown } | null> => {
+    try {
+      const updated = await prisma.blood.update({
+        where: { id: bloodId },
+        data: {
+          status: TestStatus.DISCARDED,
+          disposed: true,
+        },
+      });
+      return { success: true, data: updated };
+    } catch (err: unknown) {
+      // If record not found, prisma throws error with code P2025
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        (err as { code?: string }).code === "P2025"
+      ) {
+        return null;
+      }
+      throw err;
+    }
   },
 };
 
