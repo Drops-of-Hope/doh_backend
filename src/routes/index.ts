@@ -25,6 +25,7 @@ import type { AuthenticatedRequest } from "../types/auth.types.js";
 import { SSE } from "../utils/sse.js";
 import bloodTransitRoutes from "./bloodTransit.route.js";
 import bloodEquipmentRoutes from "./bloodEquipment.route.js";
+import donorRoutes from "./donor.route.js";
 
 const router = Router();
 
@@ -110,5 +111,8 @@ router.get('/sse', authenticateToken, (req: AuthenticatedRequest, res) => {
 
 //route to manage blood equipment (CRUD)
 router.use("/blood-equipment", bloodEquipmentRoutes);
+
+//route to get donor statistics
+router.use("/donors", donorRoutes);
 
 export default router;
