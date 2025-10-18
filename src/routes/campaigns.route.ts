@@ -11,11 +11,20 @@ router.get("/", CampaignsController.getCampaigns);
 // GET /campaigns/upcoming
 router.get("/upcoming", CampaignsController.getUpcomingCampaigns);
 
+// GET /campaigns/upcoming/medical-establishment/:medicalEstablishmentId
+router.get('/upcoming/medical-establishment/:medicalEstablishmentId', CampaignsController.getUpcomingCampaignsByMedicalEstablishment);
+
 // GET /campaigns/pending - Get campaigns pending approval
 router.get("/pending", CampaignsController.getPendingCampaigns);
 
 // GET /campaigns/pending/medical-establishment/:medicalEstablishmentId - Get pending campaigns for a medical establishment
 router.get('/pending/medical-establishment/:medicalEstablishmentId', CampaignsController.getPendingCampaignsByMedicalEstablishment);
+
+// GET /campaigns/medical-establishment/:medicalEstablishmentId/summary - Establishment dashboard summary
+router.get('/medical-establishment/:medicalEstablishmentId/summary', CampaignsController.getMedicalEstablishmentSummary);
+
+// GET /campaigns/completed/medical-establishment/:medicalEstablishmentId - Completed campaigns with pagination
+router.get('/completed/medical-establishment/:medicalEstablishmentId', CampaignsController.getCompletedCampaignsByMedicalEstablishment);
 
 // GET /campaigns/:id - Get single campaign details
 router.get("/:id", CampaignsController.getCampaignDetails);
