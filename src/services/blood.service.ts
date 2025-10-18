@@ -89,6 +89,101 @@ export const BloodService = {
 
     return { totalStock, safeUnits, expiredUnits, nearingExpiryUnits };
   },
+  // Group SAFE, not consumed units by ABO blood group with counts and items
+  listUnitsByBloodGroup: async (
+    inventoryId: string
+  ): Promise<{
+    data: Array<{
+      blood_group: BloodGroup;
+      count: number;
+      available_units: number;
+      items: unknown[];
+    }>;
+    totalAvailableUnits: number;
+    totalCount: number;
+  }> => {
+    const where = {
+      inventoryId,
+      status: TestStatus.SAFE,
+      consumed: false,
+    } satisfies Prisma.BloodWhereInput;
+
+    const records = await prisma.blood.findMany({
+      where,
+      include: {
+        bloodTests: {
+          orderBy: { testDateTime: "desc" },
+          take: 1, // use the latest test to infer ABO
+        },
+        bloodDonation: {
+          include: {
+            user: true,
+            bloodDonationForm: true,
+          },
+        },
+      },
+    });
+
+    // Helper to get ABO group from latest test if any
+    function getGroup(r: any): BloodGroup | null {
+      const t =
+        Array.isArray(r?.bloodTests) && r.bloodTests.length > 0
+          ? r.bloodTests[0]
+          : null;
+      return (t?.ABOTest as BloodGroup | undefined) ?? null;
+    }
+
+    // Compute available units the same way as other methods
+    function recordUnits(r: any): number {
+      const maybeUnits = (r as { available_units?: number }).available_units;
+      if (maybeUnits === undefined || maybeUnits === null) return 1;
+      const n = Number(maybeUnits);
+      return Number.isFinite(n) ? n : 0;
+    }
+
+    // Grouping
+    const map = new Map<
+      BloodGroup,
+      { items: any[]; count: number; available_units: number }
+    >();
+    for (const r of records) {
+      const g = getGroup(r);
+      if (!g) continue; // skip records without a determined ABO group
+      const units = recordUnits(r);
+      const entry = map.get(g) ?? { items: [], count: 0, available_units: 0 };
+      entry.items.push(r);
+      entry.count += 1;
+      entry.available_units += units;
+      map.set(g, entry);
+    }
+
+    const data = Array.from(map.entries()).map(([blood_group, v]) => ({
+      blood_group,
+      count: v.count,
+      available_units: v.available_units,
+      items: v.items,
+    }));
+
+    // Sort by a conventional ABO order
+    const order: BloodGroup[] = [
+      BloodGroup.O_NEGATIVE,
+      BloodGroup.O_POSITIVE,
+      BloodGroup.A_NEGATIVE,
+      BloodGroup.A_POSITIVE,
+      BloodGroup.B_NEGATIVE,
+      BloodGroup.B_POSITIVE,
+      BloodGroup.AB_NEGATIVE,
+      BloodGroup.AB_POSITIVE,
+    ];
+    data.sort(
+      (a, b) => order.indexOf(a.blood_group) - order.indexOf(b.blood_group)
+    );
+
+    const totalAvailableUnits = data.reduce((s, g) => s + g.available_units, 0);
+    const totalCount = records.length;
+
+    return { data, totalAvailableUnits, totalCount };
+  },
   // Core availability checker
   checkAvailability: async (
     inventoryId: string,

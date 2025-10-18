@@ -204,7 +204,17 @@ export const BloodTestRepository = {
           testDateTime: new Date(),
           resultPending: true,
         },
-        include: { blood: true },
+        include: {
+          blood: {
+            include: {
+              bloodDonation: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          },
+        },
       });
     } else {
       // ABOTest is non-nullable in the Prisma schema, provide a safe default
@@ -222,7 +232,17 @@ export const BloodTestRepository = {
           malaria: false,
           resultPending: true,
         },
-        include: { blood: true },
+        include: {
+          blood: {
+            include: {
+              bloodDonation: {
+                include: {
+                  user: true,
+                },
+              },
+            },
+          },
+        },
       });
     }
 
