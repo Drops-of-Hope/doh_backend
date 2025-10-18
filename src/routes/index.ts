@@ -23,6 +23,7 @@ import devicesRoutes from "./devices.route.js";
 import { authenticateToken } from "../middlewares/authenticateUser.js";
 import type { AuthenticatedRequest } from "../types/auth.types.js";
 import { SSE } from "../utils/sse.js";
+import bloodTransitRoutes from "./bloodTransit.route.js";
 
 const router = Router();
 
@@ -85,6 +86,9 @@ router.use("/blood", bloodRoutes);
 
 // Device routes (push token registration)
 router.use("/devices", devicesRoutes);
+
+// Blood Transit routes
+router.use("/blood-bank", bloodTransitRoutes);
 
 // SSE stream for authenticated user
 router.get('/sse', authenticateToken, (req: AuthenticatedRequest, res) => {
