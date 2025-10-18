@@ -2,7 +2,7 @@
 import { BloodTestRepository } from "../repositories/bloodTest.repository.js";
 import { EligibilityService } from "./eligibility.service.js";
 import { NotificationService } from "./notification.service.js";
-import { NotificationType } from "@prisma/client";
+import { NotificationType, Prisma } from "@prisma/client";
 
 export const BloodTestService = {
   // Get all blood units awaiting testing for a specific medical establishment inventory
@@ -70,8 +70,24 @@ export const BloodTestService = {
       if (hivTest === true) {
         try {
           // Try to resolve the userId via blood -> bloodDonation -> user
+          // Prisma type for the returned payload including nested relations
+          type HivUpsertResult = Prisma.BloodTestGetPayload<{
+            include: {
+              blood: {
+                include: {
+                  bloodDonation: {
+                    include: {
+                      user: true;
+                    };
+                  };
+                };
+              };
+            };
+          }>;
+
           const userId =
-            (updated as any)?.blood?.bloodDonation?.user?.id ?? null;
+            (updated as HivUpsertResult)?.blood?.bloodDonation?.user?.id ??
+            null;
 
           if (userId) {
             // Calculate +60 years from today

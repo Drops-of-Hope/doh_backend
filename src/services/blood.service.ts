@@ -124,8 +124,23 @@ export const BloodService = {
       },
     });
 
+    // Define precise record type for this query
+    type BloodRecord = Prisma.BloodGetPayload<{
+      include: {
+        bloodTests: true;
+        bloodDonation: {
+          include: {
+            user: true;
+            bloodDonationForm: true;
+          };
+        };
+      };
+    }>;
+
+    type WithAvailableUnits = { available_units?: number | null };
+
     // Helper to get ABO group from latest test if any
-    function getGroup(r: any): BloodGroup | null {
+    function getGroup(r: BloodRecord): BloodGroup | null {
       const t =
         Array.isArray(r?.bloodTests) && r.bloodTests.length > 0
           ? r.bloodTests[0]
@@ -134,8 +149,8 @@ export const BloodService = {
     }
 
     // Compute available units the same way as other methods
-    function recordUnits(r: any): number {
-      const maybeUnits = (r as { available_units?: number }).available_units;
+    function recordUnits(r: BloodRecord): number {
+      const maybeUnits = (r as unknown as WithAvailableUnits).available_units;
       if (maybeUnits === undefined || maybeUnits === null) return 1;
       const n = Number(maybeUnits);
       return Number.isFinite(n) ? n : 0;
@@ -144,7 +159,7 @@ export const BloodService = {
     // Grouping
     const map = new Map<
       BloodGroup,
-      { items: any[]; count: number; available_units: number }
+      { items: BloodRecord[]; count: number; available_units: number }
     >();
     for (const r of records) {
       const g = getGroup(r);
