@@ -92,4 +92,120 @@ export const DonationReportsController = {
         .json({ success: false, error: "Failed to generate donation stats" });
     }
   },
+
+  // GET /donation-reports/donors/stats
+  async getDonorStats(_req: Request, res: Response): Promise<void> {
+    try {
+      const now = new Date();
+      // This month range
+      const monthStart = startOfMonth(now);
+      const monthEnd = endOfMonth(now);
+      // One year inactivity threshold
+      const oneYearAgo = new Date(now);
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+
+      const [
+        totalDonors,
+        activeThisMonthDonors,
+        inactiveDonors,
+        totalUserDonations,
+      ] = await Promise.all([
+        DonationReportsRepository.countTotalUsers(),
+        DonationReportsRepository.countDistinctDonorsInRange(
+          monthStart,
+          monthEnd
+        ),
+        DonationReportsRepository.countInactiveDonorsSince(oneYearAgo),
+        DonationReportsRepository.countTotalUserDonations(),
+      ]);
+
+      const activePercent = totalDonors
+        ? parseFloat(((activeThisMonthDonors / totalDonors) * 100).toFixed(2))
+        : 0;
+      const inactivePercent = totalDonors
+        ? parseFloat(((inactiveDonors / totalDonors) * 100).toFixed(2))
+        : 0;
+      const avgDonationsPerDonor = totalDonors
+        ? parseFloat((totalUserDonations / totalDonors).toFixed(2))
+        : 0;
+
+      res.status(200).json({
+        success: true,
+        data: {
+          totalDonors,
+          activeDonorsThisMonth: activeThisMonthDonors,
+          activeDonorsPercent: activePercent,
+          inactiveDonorsLastYear: inactiveDonors,
+          inactiveDonorsPercent: inactivePercent,
+          avgDonationsPerDonor,
+        },
+      });
+    } catch (error) {
+      console.error("Error generating donor stats:", error);
+      res
+        .status(500)
+        .json({ success: false, error: "Failed to generate donor stats" });
+    }
+  },
+
+  // GET /donation-reports/donors/inactive
+  async getInactiveDonors(req: Request, res: Response): Promise<void> {
+    try {
+      const now = new Date();
+      const oneYearAgo = new Date(now);
+      oneYearAgo.setFullYear(now.getFullYear() - 1);
+
+      const page = Math.max(
+        parseInt(String(req.query.page ?? "1"), 10) || 1,
+        1
+      );
+      const limit = Math.min(
+        Math.max(parseInt(String(req.query.limit ?? "20"), 10) || 20, 1),
+        100
+      );
+      const skip = (page - 1) * limit;
+
+      const [items, totalInactive] = await Promise.all([
+        DonationReportsRepository.findInactiveDonorsSince(
+          oneYearAgo,
+          skip,
+          limit
+        ),
+        DonationReportsRepository.countInactiveDonorsSince(oneYearAgo),
+      ]);
+
+      const donors = items.map((u) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        nic: u.nic,
+        bloodGroup: u.bloodGroup,
+        totalDonations: u.totalDonations,
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
+        lastDonationDate: u.bloodDonations?.[0]?.endTime ?? null,
+        userDetails: u.userDetails ?? null,
+      }));
+
+      res.status(200).json({
+        success: true,
+        data: {
+          donors,
+          pagination: {
+            page,
+            limit,
+            total: totalInactive,
+            totalPages: Math.ceil(totalInactive / limit) || 1,
+            hasNext: skip + donors.length < totalInactive,
+            hasPrev: page > 1,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching inactive donors:", error);
+      res
+        .status(500)
+        .json({ success: false, error: "Failed to fetch inactive donors" });
+    }
+  },
 };

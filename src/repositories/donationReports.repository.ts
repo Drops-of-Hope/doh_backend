@@ -60,4 +60,83 @@ export const DonationReportsRepository = {
       count,
     }));
   },
+
+  // Total number of users (donors) in the system
+  async countTotalUsers(): Promise<number> {
+    return prisma.user.count();
+  },
+
+  // Count distinct donors who donated in a given period
+  async countDistinctDonorsInRange(start: Date, end: Date): Promise<number> {
+    const groups = await prisma.bloodDonation.groupBy({
+      by: ["userId"],
+      where: {
+        endTime: { gte: start, lt: end },
+        userId: { not: null },
+      },
+      _count: { _all: true },
+    });
+    // Exclude any potential null userId just in case
+    return groups.filter((g) => g.userId !== null).length;
+  },
+
+  // Count users who have NOT donated since the provided date (i.e., inactive since that date)
+  async countInactiveDonorsSince(since: Date): Promise<number> {
+    return prisma.user.count({
+      where: {
+        // none donations with endTime >= since means user didn't donate in that window
+        bloodDonations: {
+          none: {
+            endTime: { gte: since },
+          },
+        },
+      },
+    });
+  },
+
+  // Total donations recorded that are associated with a user (exclude anonymous/null userId)
+  async countTotalUserDonations(): Promise<number> {
+    return prisma.bloodDonation.count({ where: { userId: { not: null } } });
+  },
+
+  // Fetch donors who haven't donated since a given date, with pagination
+  async findInactiveDonorsSince(since: Date, skip = 0, take = 20) {
+    return prisma.user.findMany({
+      where: {
+        bloodDonations: {
+          none: {
+            endTime: { gte: since },
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        nic: true,
+        bloodGroup: true,
+        createdAt: true,
+        updatedAt: true,
+        totalDonations: true,
+        userDetails: {
+          select: {
+            phoneNumber: true,
+            city: true,
+            district: true,
+            address: true,
+            type: true,
+          },
+        },
+        // latest donation date if any (will be null for truly never-donated)
+        bloodDonations: {
+          orderBy: { endTime: "desc" },
+          take: 1,
+          select: { endTime: true },
+        },
+      },
+    });
+  },
 };
