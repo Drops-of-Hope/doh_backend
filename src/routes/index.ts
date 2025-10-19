@@ -20,6 +20,7 @@ import bloodRoutes from './blood.routes.js';
 import activitiesRoutes from "./activities.route.js";
 import bloodTestRoutes from "./bloodTest.route.js";
 import devicesRoutes from "./devices.route.js";
+import donorRoutes from "./donor.route.js";
 import { authenticateToken } from "../middlewares/authenticateUser.js";
 import type { AuthenticatedRequest } from "../types/auth.types.js";
 import { SSE } from "../utils/sse.js";
@@ -86,6 +87,9 @@ router.use("/blood", bloodRoutes);
 
 // Device routes (push token registration)
 router.use("/devices", devicesRoutes);
+
+// Donor routes
+router.use("/", donorRoutes);
 
 // Blood Transit routes
 router.use("/blood-bank", bloodTransitRoutes);
