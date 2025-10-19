@@ -12,4 +12,30 @@ export const HealthVitalsRepository = {
         cvsPulse,
       },
     }),
+
+  getByAppointmentId: (appointmentId: string) =>
+    prisma.healthVital.findMany({
+      where: {
+        appointmentId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+        appointment: {
+          select: {
+            id: true,
+            appointmentDate: true,
+            scheduled: true,
+          },
+        },
+      },
+      orderBy: {
+        dateTime: 'desc',
+      },
+    }),
 };

@@ -162,6 +162,7 @@ export const AppointmentsController = {
         return;
       }
 
+      // include related slot and medicalEstablishment to return richer data
       const appointments = await prisma.appointment.findMany({
         where: { donorId: userId },
         include: {
@@ -178,8 +179,16 @@ export const AppointmentsController = {
           donorId: apt.donorId,
           scheduled: apt.scheduled,
           appointmentDate: apt.appointmentDate,
-          slotId: apt.slotId,
-          medicalEstablishmentId: apt.medicalEstablishmentId,
+          medicalEstablishment: apt.medicalEstablishment ? {
+            id: apt.medicalEstablishment.id,
+            name: apt.medicalEstablishment.name,
+            address: apt.medicalEstablishment.address,
+          } : null,
+          slot: apt.slot ? {
+            id: apt.slot.id,
+            startTime: apt.slot.startTime,
+            endTime: apt.slot.endTime,
+          } : null,
         })),
       });
     } catch (error) {
@@ -325,29 +334,78 @@ export const AppointmentsController = {
         return;
       }
 
-      const appointment = await prisma.appointment.create({
-        data: {
+      // Check if user already has an appointment for the same day
+      const dayStart = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate());
+      const dayEnd = new Date(parsedDate.getFullYear(), parsedDate.getMonth(), parsedDate.getDate() + 1);
+      
+      const existingAppointmentSameDay = await prisma.appointment.findFirst({
+        where: {
           donorId: userId,
-          slotId,
-          appointmentDate: parsedDate,
-          medicalEstablishmentId,
-          scheduled: "PENDING",
-        },
-      });
-
-      // Create activity record
-      await prisma.activity.create({
-        data: {
-          userId,
-          type: "APPOINTMENT_SCHEDULED",
-          title: "Appointment Scheduled",
-          description: `Appointment scheduled for ${parsedDate.toLocaleDateString()}`,
-          metadata: {
-            appointmentId: appointment.id,
-            medicalEstablishmentName: medicalEstablishment.name,
+          appointmentDate: {
+            gte: dayStart,
+            lt: dayEnd,
+          },
+          scheduled: {
+            not: "CANCELLED",
           },
         },
       });
+
+      let appointment;
+
+      if (existingAppointmentSameDay) {
+        // Overwrite the existing appointment for the same day
+        appointment = await prisma.appointment.update({
+          where: { id: existingAppointmentSameDay.id },
+          data: {
+            slotId,
+            appointmentDate: parsedDate,
+            medicalEstablishmentId,
+            scheduled: "PENDING",
+          },
+        });
+
+        // Create activity record for update
+        await prisma.activity.create({
+          data: {
+            userId,
+            type: "APPOINTMENT_SCHEDULED",
+            title: "Appointment Updated",
+            description: `Appointment updated for ${parsedDate.toLocaleDateString()}`,
+            metadata: {
+              appointmentId: appointment.id,
+              medicalEstablishmentName: medicalEstablishment.name,
+              previousSlotId: existingAppointmentSameDay.slotId,
+              updatedSlotId: slotId,
+            },
+          },
+        });
+      } else {
+        // Create new appointment
+        appointment = await prisma.appointment.create({
+          data: {
+            donorId: userId,
+            slotId,
+            appointmentDate: parsedDate,
+            medicalEstablishmentId,
+            scheduled: "PENDING",
+          },
+        });
+
+        // Create activity record for creation
+        await prisma.activity.create({
+          data: {
+            userId,
+            type: "APPOINTMENT_SCHEDULED",
+            title: "Appointment Scheduled",
+            description: `Appointment scheduled for ${parsedDate.toLocaleDateString()}`,
+            metadata: {
+              appointmentId: appointment.id,
+              medicalEstablishmentName: medicalEstablishment.name,
+            },
+          },
+        });
+      }
 
       res.status(201).json({
         success: true,
@@ -358,8 +416,11 @@ export const AppointmentsController = {
           appointmentDate: appointment.appointmentDate,
           slotId: appointment.slotId,
           medicalEstablishmentId: appointment.medicalEstablishmentId,
+          isUpdate: !!existingAppointmentSameDay,
         },
-        message: "Appointment created successfully",
+        message: existingAppointmentSameDay 
+          ? "Appointment updated successfully (replaced existing appointment for the same day)"
+          : "Appointment created successfully",
       });
     } catch (error) {
       console.error("Error creating authenticated appointment:", error);

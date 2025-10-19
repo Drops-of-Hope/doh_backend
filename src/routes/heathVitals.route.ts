@@ -4,5 +4,6 @@ import { HealthVitalsController } from '../controllers/healthVitals.controller.j
 const router = Router();
 
 router.post('/', HealthVitalsController.create);
+router.get('/:appointmentId', HealthVitalsController.getByAppointmentId);
 
 export default router;

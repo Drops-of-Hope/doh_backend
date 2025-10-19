@@ -1,8 +1,11 @@
+import { DonorRepository } from "../repositories/donor.repository.js";
 import { prisma } from "../config/db.js";
 import type { BloodDonation } from "@prisma/client";
 
 export const DonorService = {
-  getAllDonors: async (): Promise<BloodDonation[]> => {
+  getDonorCountsByDistrict: DonorRepository.getDonorCountsByDistrict,
+  getSummaryCounts: DonorRepository.getSummaryCounts,
+    getAllDonors: async (): Promise<BloodDonation[]> => {
     const donors = await prisma.bloodDonation.findMany({
       include: {
         user: true,
