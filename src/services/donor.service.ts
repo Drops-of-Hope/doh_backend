@@ -1,5 +1,6 @@
-import { DonorRepository } from '../repositories/donor.repository.js';
+import { DonorRepository } from "../repositories/donor.repository.js";
 
 export const DonorService = {
   getDonorCountsByDistrict: DonorRepository.getDonorCountsByDistrict,
+  getSummaryCounts: DonorRepository.getSummaryCounts,
 };

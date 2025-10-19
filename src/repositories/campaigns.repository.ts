@@ -1,5 +1,5 @@
 import { prisma } from '../config/db.js';
-import { Prisma, ApprovalStatus } from '@prisma/client';
+import { Prisma, ApprovalStatus, ParticipationStatus } from '@prisma/client';
 
 interface CampaignFilters {
   status?: string;
@@ -16,6 +16,19 @@ interface AttendanceFilters {
 }
 
 export const CampaignRepository = {
+  // Count participants excluding NO_SHOW and CANCELLED statuses for a campaign
+  countActiveParticipants: async (campaignId: string) => {
+    const count = await prisma.campaignParticipation.count({
+      where: {
+        campaignId,
+        status: {
+          notIn: [ParticipationStatus.NO_SHOW, ParticipationStatus.CANCELLED],
+        },
+      },
+    });
+    return count;
+  },
+
   // Find many campaigns with filters
   findMany: async (filters: CampaignFilters) => {
     const { status, featured, limit = 10, page = 1 } = filters;
