@@ -1,5 +1,5 @@
 import { prisma } from "../config/db.js";
-import type { Prisma, RequestStatus, UrgencyLevel, BloodGroup } from "@prisma/client";
+import { RequestStatus, UrgencyLevel, BloodGroup } from "@prisma/client";
 
 const RequestRepository = {
   create: async (data: {
@@ -41,7 +41,7 @@ const RequestRepository = {
     return prisma.request.findMany({
       where: {
         medicalEstablishmentId,
-        status: "PENDING" as any,
+        status: RequestStatus.PENDING,
       },
       orderBy: { createdAt: "desc" },
       include: {
@@ -54,7 +54,7 @@ const RequestRepository = {
     return prisma.request.findMany({
       where: {
         requestingBloodBankId: bloodBankId,
-        status: "PENDING" as any,
+        status: RequestStatus.PENDING,
       },
       orderBy: { createdAt: "desc" },
       include: {
