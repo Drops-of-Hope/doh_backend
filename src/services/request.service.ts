@@ -1,6 +1,11 @@
 import { prisma } from "../config/db.js";
 import RequestRepository from "../repositories/request.repository.js";
-import type { Prisma, RequestStatus, UrgencyLevel, BloodGroup } from "@prisma/client";
+import type {
+  Prisma,
+  RequestStatus,
+  UrgencyLevel,
+  BloodGroup,
+} from "@prisma/client";
 
 export class BadRequestError extends Error {
   constructor(message: string) {
@@ -49,40 +54,51 @@ const RequestService = {
       } else {
         // Case 2: JSON provided
         const unitsObj: Record<string, unknown> =
-          typeof raw === "string" ? JSON.parse(raw as string) : (raw as Record<string, unknown>);
+          typeof raw === "string"
+            ? JSON.parse(raw as string)
+            : (raw as Record<string, unknown>);
 
         const keys = Object.keys(unitsObj);
-        if (keys.length !== 1) throw new BadRequestError("unitsRequired must contain exactly one blood group entry");
+        if (keys.length !== 1)
+          throw new BadRequestError(
+            "unitsRequired must contain exactly one blood group entry"
+          );
 
         const key = keys[0];
-        if (key !== expectedKey) throw new BadRequestError(`unitsRequired key must match bloodGroup (${expectedKey})`);
+        if (key !== expectedKey)
+          throw new BadRequestError(
+            `unitsRequired key must match bloodGroup (${expectedKey})`
+          );
 
         const value = Number(unitsObj[key]);
-        if (!Number.isFinite(value) || value <= 0) throw new BadRequestError("unitsRequired value must be a positive number");
+        if (!Number.isFinite(value) || value <= 0)
+          throw new BadRequestError(
+            "unitsRequired value must be a positive number"
+          );
 
         // Normalize to number for DB storage
         payload.unitsRequired = value;
       }
     } catch (e) {
       if (e instanceof BadRequestError) throw e;
-      throw new BadRequestError("unitsRequired must be a positive number, or a JSON object with a single matching bloodGroup");
+      throw new BadRequestError(
+        "unitsRequired must be a positive number, or a JSON object with a single matching bloodGroup"
+      );
     }
 
     // Ensure recipient medical establishment exists
-    const recipient = await prisma.medicalEstablishment.findUnique({ where: { id: payload.medicalEstablishmentId } });
+    const recipient = await prisma.medicalEstablishment.findUnique({
+      where: { id: payload.medicalEstablishmentId },
+    });
     if (!recipient) {
       throw new BadRequestError("medicalEstablishmentId (recipient) not found");
     }
 
-    // Requesting medical establishment (the requester) is required
+    // Requester is required (can be a BloodBank.id or the linked MedicalEstablishment.id)
     if (!payload.requestingBloodBankId) {
-      throw new BadRequestError("requestingBloodBankId (requester medical establishment) is required");
-    }
-
-    // Ensure requesting medical establishment exists
-    const requester = await prisma.medicalEstablishment.findUnique({ where: { id: payload.requestingBloodBankId } });
-    if (!requester) {
-      throw new BadRequestError("requestingBloodBankId (requester) not found");
+      throw new BadRequestError(
+        "requestingBloodBankId is required (accepts BloodBank.id or its MedicalEstablishment.id)"
+      );
     }
 
     // Resolve requestingBloodBankId to an actual BloodBank.id
@@ -90,18 +106,22 @@ const RequestService = {
     let resolvedBloodBankId: string | undefined = undefined;
 
     // First try whether the provided id matches an existing BloodBank.id
-    const directBank = await prisma.bloodBank.findUnique({ where: { id: payload.requestingBloodBankId } });
+    const directBank = await prisma.bloodBank.findUnique({
+      where: { id: payload.requestingBloodBankId },
+    });
     if (directBank) {
       resolvedBloodBankId = directBank.id;
     } else {
       // Otherwise try to find a BloodBank whose medicalEstablishmentId equals the provided id
-      const bankByMed = await prisma.bloodBank.findFirst({ where: { medicalEstablishmentId: payload.requestingBloodBankId } });
+      const bankByMed = await prisma.bloodBank.findFirst({
+        where: { medicalEstablishmentId: payload.requestingBloodBankId },
+      });
       if (bankByMed) resolvedBloodBankId = bankByMed.id;
     }
 
     if (!resolvedBloodBankId) {
       throw new BadRequestError(
-        "No BloodBank found for the provided requestingBloodBankId. Provide a valid BloodBank.id or create a BloodBank linked to the MedicalEstablishment."
+        "No BloodBank found for the provided requestingBloodBankId. Provide a valid BloodBank.id or a MedicalEstablishment.id linked to a BloodBank."
       );
     }
 
@@ -122,29 +142,36 @@ const RequestService = {
       status: payload.status ? String(payload.status) : undefined,
     } as const;
 
-    const created = await RequestRepository.create(repoInput as unknown as {
-      bloodGroup: string;
-      unitsRequired: number;
-      urgencyLevel: string;
-      requestReason: string;
-      requestDeliveryDate: string | Date;
-      requestDeliveryTime: string;
-      medicalEstablishmentId: string;
-      requestingBloodBankId?: string;
-      additionalNotes?: string;
-      status?: string;
-    });
+    const created = await RequestRepository.create(
+      repoInput as unknown as {
+        bloodGroup: string;
+        unitsRequired: number;
+        urgencyLevel: string;
+        requestReason: string;
+        requestDeliveryDate: string | Date;
+        requestDeliveryTime: string;
+        medicalEstablishmentId: string;
+        requestingBloodBankId?: string;
+        additionalNotes?: string;
+        status?: string;
+      }
+    );
     return created;
   },
   getPendingByRecipient: async (medicalEstablishmentId: string) => {
     // verify recipient exists (optional but consistent)
-    const recipient = await prisma.medicalEstablishment.findUnique({ where: { id: medicalEstablishmentId } });
-    if (!recipient) throw new BadRequestError("medicalEstablishmentId not found");
+    const recipient = await prisma.medicalEstablishment.findUnique({
+      where: { id: medicalEstablishmentId },
+    });
+    if (!recipient)
+      throw new BadRequestError("medicalEstablishmentId not found");
     return RequestRepository.findPendingByRecipient(medicalEstablishmentId);
   },
   getPendingByRequester: async (bloodBankId: string) => {
     // bloodBankId is BloodBank.id
-    const bank = await prisma.bloodBank.findUnique({ where: { id: bloodBankId } });
+    const bank = await prisma.bloodBank.findUnique({
+      where: { id: bloodBankId },
+    });
     if (!bank) throw new BadRequestError("bloodBankId not found");
     return RequestRepository.findPendingByRequester(bloodBankId);
   },
