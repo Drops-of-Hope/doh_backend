@@ -1,4 +1,4 @@
-import { BloodGroup, Prisma, TestStatus } from "@prisma/client";
+import { BloodGroup, Prisma } from "@prisma/client";
 import { prisma } from "../config/db.js";
 
 export type BloodBankHomeCounts = {
