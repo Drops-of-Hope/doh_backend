@@ -5,7 +5,7 @@ import type { BloodDonation } from "@prisma/client";
 export const DonorService = {
   getDonorCountsByDistrict: DonorRepository.getDonorCountsByDistrict,
   getSummaryCounts: DonorRepository.getSummaryCounts,
-    getAllDonors: async (): Promise<BloodDonation[]> => {
+  getAllDonors: async (): Promise<BloodDonation[]> => {
     const donors = await prisma.bloodDonation.findMany({
       include: {
         user: true,
@@ -25,7 +25,7 @@ export const DonorService = {
 
     // Use Prisma groupBy to aggregate by date (startTime)
     const rows = await prisma.bloodDonation.groupBy({
-      by: ["startTime" as any],
+      by: ["startTime"],
       where: {
         startTime: {
           gte: start,
@@ -39,8 +39,8 @@ export const DonorService = {
     // Map and normalize to date-only keys
     const countsMap: Record<string, number> = {};
     rows.forEach((r) => {
-      const dateStr = new Date(r.startTime as unknown as string).toISOString().slice(0, 10);
-      countsMap[dateStr] = (r as any)._count?.id ?? 0;
+      const dateStr = r.startTime.toISOString().slice(0, 10);
+      countsMap[dateStr] = (countsMap[dateStr] ?? 0) + r._count.id;
     });
 
     // Build result for each day in range
