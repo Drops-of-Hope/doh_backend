@@ -37,6 +37,32 @@ const RequestRepository = {
       },
     });
   },
+  findPendingByRecipient: async (medicalEstablishmentId: string) => {
+    return prisma.request.findMany({
+      where: {
+        medicalEstablishmentId,
+        status: "PENDING" as any,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        medicalEstablishment: true,
+        requestingBloodBank: true,
+      },
+    });
+  },
+  findPendingByRequester: async (bloodBankId: string) => {
+    return prisma.request.findMany({
+      where: {
+        requestingBloodBankId: bloodBankId,
+        status: "PENDING" as any,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        medicalEstablishment: true,
+        requestingBloodBank: true,
+      },
+    });
+  },
 };
 
 export default RequestRepository;

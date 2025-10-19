@@ -136,6 +136,18 @@ const RequestService = {
     });
     return created;
   },
+  getPendingByRecipient: async (medicalEstablishmentId: string) => {
+    // verify recipient exists (optional but consistent)
+    const recipient = await prisma.medicalEstablishment.findUnique({ where: { id: medicalEstablishmentId } });
+    if (!recipient) throw new BadRequestError("medicalEstablishmentId not found");
+    return RequestRepository.findPendingByRecipient(medicalEstablishmentId);
+  },
+  getPendingByRequester: async (bloodBankId: string) => {
+    // bloodBankId is BloodBank.id
+    const bank = await prisma.bloodBank.findUnique({ where: { id: bloodBankId } });
+    if (!bank) throw new BadRequestError("bloodBankId not found");
+    return RequestRepository.findPendingByRequester(bloodBankId);
+  },
 };
 
 export default RequestService;
