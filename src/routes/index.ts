@@ -27,6 +27,7 @@ import bloodTransitRoutes from "./bloodTransit.route.js";
 import bloodEquipmentRoutes from "./bloodEquipment.route.js";
 import donorRoutes from "./donor.route.js";
 import donationReportsRoutes from "./donationReports.route.js";
+import bloodBankHomeRoutes from "./bloodBankHome.route.js";
 
 const router = Router();
 
@@ -95,6 +96,9 @@ router.use("/blood-bank", bloodTransitRoutes);
 
 // Donation reports routes
 router.use("/donation-reports", donationReportsRoutes);
+
+// Blood Bank Home (dashboard) routes
+router.use("/blood-bank-home", bloodBankHomeRoutes);
 
 // SSE stream for authenticated user
 router.get("/sse", authenticateToken, (req: AuthenticatedRequest, res) => {
