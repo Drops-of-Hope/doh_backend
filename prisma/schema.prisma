@@ -406,6 +406,7 @@ model BloodBank {
   bloodRequests          BloodRequest[]
   bloodTransits          BloodTransit[]
   campaigns              Campaign[]
+  Request                Request[]
 }
 
 model MedicalEstablishment {
@@ -423,6 +424,7 @@ model MedicalEstablishment {
   equipment        Equipment[]
   hospitals        Hospital[]
   inventory        Inventory[]
+  Request          Request[]
 }
 
 model AppointmentSlot {
@@ -511,6 +513,24 @@ model StaffAssignment {
 model Dummy {
   id        Int    @id @default(autoincrement())
   dummyName String
+}
+
+model Request {
+  id                     String               @id
+  bloodGroup             BloodGroup
+  unitsRequired          Int
+  urgencyLevel           UrgencyLevel
+  requestReason          String
+  requestDeliveryDate    DateTime
+  requestDeliveryTime    String
+  medicalEstablishmentId String
+  requestingBloodBankId  String?
+  additionalNotes        String?
+  status                 RequestStatus        @default(PENDING)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime
+  MedicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+  BloodBank              BloodBank?           @relation(fields: [requestingBloodBankId], references: [id])
 }
 
 enum BloodGroup {

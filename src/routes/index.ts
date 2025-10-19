@@ -14,9 +14,9 @@ import qrRoutes from "./qr.route.js";
 import notificationRoutes from "./notification.route.js";
 import donationFormRoutes from "./donationForm.route.js";
 import eligibilityRoutes from "./eligibility.route.js";
-import healthVitalsRoutes from './heathVitals.route.js';
-import bloodDonationRoutes from './bloodDonation.route.js';
-import bloodRoutes from './blood.routes.js';
+import healthVitalsRoutes from "./heathVitals.route.js";
+import bloodDonationRoutes from "./bloodDonation.route.js";
+import bloodRoutes from "./blood.routes.js";
 import activitiesRoutes from "./activities.route.js";
 import bloodTestRoutes from "./bloodTest.route.js";
 import devicesRoutes from "./devices.route.js";
@@ -26,6 +26,7 @@ import { SSE } from "../utils/sse.js";
 import bloodTransitRoutes from "./bloodTransit.route.js";
 import bloodEquipmentRoutes from "./bloodEquipment.route.js";
 import donorRoutes from "./donor.route.js";
+import donationReportsRoutes from "./donationReports.route.js";
 
 const router = Router();
 
@@ -94,21 +95,24 @@ router.use("/devices", devicesRoutes);
 // Blood Transit routes
 router.use("/blood-bank", bloodTransitRoutes);
 
+// Donation reports routes
+router.use("/donation-reports", donationReportsRoutes);
+
 // SSE stream for authenticated user
-router.get('/sse', authenticateToken, (req: AuthenticatedRequest, res) => {
-	const userId = req.user?.id;
-	if (!userId) {
-		res.status(401).end();
-		return;
-	}
-	res.writeHead(200, {
-		'Content-Type': 'text/event-stream',
-		'Cache-Control': 'no-cache',
-		Connection: 'keep-alive',
-	});
-	// Initial ping
-	res.write(`event: ping\ndata: {"ok":true}\n\n`);
-	SSE.subscribe(userId, res);
+router.get("/sse", authenticateToken, (req: AuthenticatedRequest, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).end();
+    return;
+  }
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+  // Initial ping
+  res.write(`event: ping\ndata: {"ok":true}\n\n`);
+  SSE.subscribe(userId, res);
 });
 
 //route to manage blood equipment (CRUD)
