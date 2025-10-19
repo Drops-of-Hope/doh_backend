@@ -33,21 +33,47 @@ export const RequestController = {
       res.status(200).json({ message: "Success", data });
     } catch (error) {
       console.error("Error fetching pending requests by recipient:", error);
-      res.status(500).json({ message: "Internal server error" });
+      if (error instanceof BadRequestError) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
     }
   },
   getPendingByRequester: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { bloodBankId } = req.query as Record<string, string | undefined>;
-      if (!bloodBankId) {
-        res.status(400).json({ message: "bloodBankId is required" });
+      const { medicalEstablishmentId } = req.query as Record<string, string | undefined>;
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ message: "medicalEstablishmentId is required" });
         return;
       }
-      const data = await RequestService.getPendingByRequester(bloodBankId);
+      const data = await RequestService.getPendingByRequesterByMedicalEstablishmentId(medicalEstablishmentId);
       res.status(200).json({ message: "Success", data });
     } catch (error) {
       console.error("Error fetching pending requests by requester:", error);
-      res.status(500).json({ message: "Internal server error" });
+      if (error instanceof BadRequestError) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  },
+  getSummary: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medicalEstablishmentId } = req.query as Record<string, string | undefined>;
+      if (!medicalEstablishmentId) {
+        res.status(400).json({ message: "medicalEstablishmentId is required" });
+        return;
+      }
+      const data = await RequestService.getSummary(medicalEstablishmentId);
+      res.status(200).json({ message: "Success", data });
+    } catch (error) {
+      console.error("Error fetching request summary:", error);
+      if (error instanceof BadRequestError) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
     }
   },
 };

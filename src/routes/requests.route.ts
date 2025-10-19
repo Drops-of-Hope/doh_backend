@@ -12,5 +12,8 @@ router.get("/pending/by-recipient", RequestController.getPendingByRecipient);
 // GET /pending/by-requester?bloodBankId=...
 router.get("/pending/by-requester", RequestController.getPendingByRequester);
 
+// GET /summary?medicalEstablishmentId=...
+router.get("/summary", RequestController.getSummary);
+
 export default router;
 

@@ -175,6 +175,26 @@ const RequestService = {
     if (!bank) throw new BadRequestError("bloodBankId not found");
     return RequestRepository.findPendingByRequester(bloodBankId);
   },
+    getPendingByRequesterByMedicalEstablishmentId: async (
+      medicalEstablishmentId: string
+    ) => {
+      // Validate med establishment exists
+      const med = await prisma.medicalEstablishment.findUnique({
+        where: { id: medicalEstablishmentId },
+      });
+      if (!med) throw new BadRequestError("medicalEstablishmentId not found");
+      return RequestRepository.findPendingByRequesterByMedicalEstablishmentId(
+        medicalEstablishmentId
+      );
+    },
+  getSummary: async (medicalEstablishmentId: string) => {
+    // validate med establishment exists
+    const med = await prisma.medicalEstablishment.findUnique({
+      where: { id: medicalEstablishmentId },
+    });
+    if (!med) throw new BadRequestError("medicalEstablishmentId not found");
+    return RequestRepository.getSummary(medicalEstablishmentId);
+  },
 };
 
 export default RequestService;
