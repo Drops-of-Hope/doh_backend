@@ -21,13 +21,14 @@ import bloodRoutes from "./blood.routes.js";
 import activitiesRoutes from "./activities.route.js";
 import bloodTestRoutes from "./bloodTest.route.js";
 import devicesRoutes from "./devices.route.js";
+import donorRoutes from "./donor.route.js";
 import { authenticateToken } from "../middlewares/authenticateUser.js";
 import type { AuthenticatedRequest } from "../types/auth.types.js";
 import { SSE } from "../utils/sse.js";
 import bloodTransitRoutes from "./bloodTransit.route.js";
 import bloodEquipmentRoutes from "./bloodEquipment.route.js";
-import donorRoutes from "./donor.route.js";
 import donationReportsRoutes from "./donationReports.route.js";
+import bloodBankHomeRoutes from "./bloodBankHome.route.js";
 
 const router = Router();
 
@@ -96,11 +97,17 @@ router.use("/blood", bloodRoutes);
 // Device routes (push token registration)
 router.use("/devices", devicesRoutes);
 
+// Donor routes
+router.use("/", donorRoutes);
+
 // Blood Transit routes
 router.use("/blood-bank", bloodTransitRoutes);
 
 // Donation reports routes
 router.use("/donation-reports", donationReportsRoutes);
+
+// Blood Bank Home (dashboard) routes
+router.use("/blood-bank-home", bloodBankHomeRoutes);
 
 // SSE stream for authenticated user
 router.get("/sse", authenticateToken, (req: AuthenticatedRequest, res) => {

@@ -3,6 +3,8 @@ import { UserService } from "../services/user.service.js";
 import { CreateOrLoginUserRequest, ProfileCompletionRequest } from "../types/user.types.js";
 import { AuthenticatedRequest } from "../types/auth.types.js";
 import { PrismaClient, ActivityType, BloodGroup, District, Prisma, NotificationType } from "@prisma/client";
+import jwt from "jsonwebtoken";
+import AsgardeoService from "../services/asgardeo.service.js";
 
 const prisma = new PrismaClient();
 
@@ -36,6 +38,108 @@ export const UserController = {
       res.status(500).json({
         message: "Failed to create or login user",
         error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  // POST /api/users/request-campaign-organizer-role
+  requestCampaignOrganizerRole: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader && authHeader.split(" ")[1];
+      if (!token) {
+        res.status(401).json({
+          success: false,
+          message: "Authentication required",
+          error: "UNAUTHORIZED",
+        });
+        return;
+      }
+
+      // Decode token to extract Asgardeo subject and roles/groups
+      const decodedUnknown = jwt.decode(token);
+      if (!decodedUnknown || typeof decodedUnknown !== "object") {
+        res.status(401).json({
+          success: false,
+          message: "Invalid token",
+          error: "UNAUTHORIZED",
+        });
+        return;
+      }
+
+      const decoded = decodedUnknown as {
+        sub?: string;
+        roles?: unknown;
+        groups?: unknown;
+        scope?: unknown;
+      };
+
+      const userSub = decoded.sub;
+      if (!userSub) {
+        res.status(400).json({
+          success: false,
+          message: "User identifier not found in token",
+          error: "MALFORMED_TOKEN",
+        });
+        return;
+      }
+
+      // For now, accept any authenticated user with a valid token and sub
+      // Role checking will be done via SCIM API below
+      console.log("✅ User authenticated with sub:", userSub);
+      console.log("📋 Token scope:", decoded.scope);
+      console.log("📋 Token roles claim:", decoded.roles);
+      console.log("📋 Token groups claim:", decoded.groups);
+
+      // Get M2M management token for administrative operations
+      // User's token is used for authentication, M2M token for role assignment
+      console.log("🔐 Obtaining M2M management token...");
+      const mgmtToken = await AsgardeoService.getManagementAccessToken("internal_role_mgt_update internal_role_mgt_view internal_user_mgt_view");
+
+      // Check via SCIM if user already has the role
+      try {
+        const scimUserUnknown = await AsgardeoService.getScimUser(userSub, mgmtToken);
+        const scimRoles: string[] = (() => {
+          if (scimUserUnknown && typeof scimUserUnknown === "object") {
+            const rolesVal = (scimUserUnknown as Record<string, unknown>)["roles"];
+            if (Array.isArray(rolesVal)) {
+              return rolesVal
+                .map((r) =>
+                  r && typeof r === "object" && "display" in (r as Record<string, unknown>)
+                    ? (r as Record<string, unknown>)["display"]
+                    : undefined
+                )
+                .filter((v): v is string => typeof v === "string");
+            }
+          }
+          return [];
+        })();
+        if (scimRoles.includes("Internal/CampaignOrg")) {
+          res.status(400).json({
+            success: false,
+            message: "User already has Campaign Organizer role",
+            error: "ROLE_ALREADY_ASSIGNED",
+          });
+          return;
+        }
+      } catch {
+        // Continue; inability to fetch should not block assignment attempt if token is valid
+      }
+
+      console.log("🎯 Assigning CampaignOrg role to user:", userSub);
+      await AsgardeoService.assignCampaignOrganizer(userSub, mgmtToken, "Internal/CampaignOrg");
+
+      res.status(200).json({
+        success: true,
+        message: "Campaign Organizer role assigned successfully",
+        role: "Internal/CampaignOrg",
+      });
+    } catch (error) {
+      console.error("Assign Campaign Organizer role error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Failed to assign role via Asgardeo",
+        error: "ASGARDEO_API_ERROR",
       });
     }
   },
