@@ -75,6 +75,22 @@
 			"label": "Build after push+sse integration",
 			"type": "shell",
 			"command": "npm run -s build ; npm run -s lint"
+		},
+		{
+			"label": "Typecheck and Lint (ad-hoc)",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint"
+		},
+		{
+			"label": "Typecheck and Lint (ad-hoc)",
+			"type": "shell",
+			"command": "npm run -s build ; npm run -s lint",
+			"isBackground": false,
+			"problemMatcher": [
+				"$tsc",
+				"$eslint - stylish"
+			],
+			"group": "build"
 		}
 	]
 }

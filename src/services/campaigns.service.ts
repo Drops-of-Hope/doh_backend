@@ -46,6 +46,17 @@ interface AttendanceFilters {
 }
 
 export const CampaignService = {
+  // Get participation count excluding NO_SHOW and CANCELLED
+  getParticipationStatus: async (campaignId: string) => {
+    try {
+      const count = await CampaignRepository.countActiveParticipants(campaignId);
+      return { success: true, count };
+    } catch (error) {
+      console.error('Get participation status service error:', error);
+      throw new Error('Failed to fetch participation status');
+    }
+  },
+
   // Get all campaigns with filters
   getCampaigns: async (filters: CampaignFilters) => {
     try {

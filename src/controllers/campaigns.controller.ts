@@ -18,6 +18,30 @@ interface AuthenticatedRequest extends Request {
 }
 
 export const CampaignsController = {
+  // GET /campaigns/:id/participation-status - Count participants excluding NO_SHOW and CANCELLED
+  getParticipationStatus: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params;
+      if (!id) {
+        res.status(400).json({ success: false, error: 'Campaign id is required', count: 0, data: { count: 0 } });
+        return;
+      }
+
+      // Optional existence check; keep it lightweight
+      const campaignExists = await prisma.campaign.findUnique({ where: { id }, select: { id: true } });
+      if (!campaignExists) {
+        res.status(404).json({ success: false, error: 'Campaign not found', count: 0, data: { count: 0 } });
+        return;
+      }
+
+      const result = await CampaignService.getParticipationStatus(id);
+      res.status(200).json({ success: true, count: result.count, data: { count: result.count } });
+    } catch (error) {
+      console.error('Get participation status error:', error);
+      res.status(500).json({ success: false, error: 'Internal server error', count: 0, data: { count: 0 } });
+    }
+  },
+
   // GET /campaigns
   getCampaigns: async (req: Request, res: Response): Promise<void> => {
     try {
