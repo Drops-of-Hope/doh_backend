@@ -43,6 +43,36 @@ export const MedicalEstablishmentsController = {
     }
   },
 
+  // Explicit endpoint to fetch all establishments (no filtering)
+  getAllMedicalEstablishments: async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
+    try {
+      const establishments =
+        await MedicalEstablishmentsService.getAllMedicalEstablishments();
+
+      const formattedEstablishments = establishments.map(
+        (est: MedicalEstablishment) => ({
+          id: est.id,
+          name: est.name,
+          address: est.address,
+          region: est.region,
+          email: est.email,
+          bloodCapacity: est.bloodCapacity,
+          isBloodBank: est.isBloodBank,
+        })
+      );
+
+      res.status(200).json({
+        data: formattedEstablishments,
+      });
+    } catch (error) {
+      console.error("Error fetching all establishments:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+
   getSlots: async (req: Request, res: Response): Promise<void> => {
     try {
       const { establishmentId } = req.params;
@@ -87,8 +117,9 @@ export const MedicalEstablishmentsController = {
         return;
       }
 
-      const inventory =
-        await MedicalEstablishmentsService.getInventory(establishmentId);
+      const inventory = await MedicalEstablishmentsService.getInventory(
+        establishmentId
+      );
 
       if (!inventory) {
         res.status(404).json({

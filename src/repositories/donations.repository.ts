@@ -73,5 +73,28 @@ export const DonationsRepository = {
         appointment: true,
       },
     });
-  }
+  },
+
+  // Retrieve past donations for a donor with place and date info
+  findPastDonationsByDonor: async (donorId: string) => {
+    return prisma.bloodDonation.findMany({
+      where: { userId: donorId },
+      orderBy: { endTime: "desc" },
+      select: {
+        startTime: true,
+        endTime: true,
+        bloodDonationForm: {
+          select: {
+            appointment: {
+              select: {
+                medicalEstablishment: {
+                  select: { name: true },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  },
 };
