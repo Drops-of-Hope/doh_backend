@@ -11,7 +11,7 @@ export class BadRequestError extends Error {
 
 export type CreateRequestInput = {
   bloodGroup: BloodGroup | string;
-  unitsRequired: Prisma.InputJsonValue;
+  unitsRequired: Prisma.InputJsonValue | number;
   urgencyLevel: UrgencyLevel | string;
   requestReason: string;
   requestDeliveryDate: string | Date;
@@ -34,22 +34,38 @@ const RequestService = {
       throw new BadRequestError("unitsRequired is required");
     }
 
-    // If unitsRequired is JSON object, ensure at least one value > 0
+    // Accept unitsRequired as number or JSON. Persist as number in DB.
     try {
-      const unitsRaw = payload.unitsRequired;
-      const unitsObj: Record<string, unknown> =
-        typeof unitsRaw === "string" ? JSON.parse(unitsRaw as string) : (unitsRaw as Record<string, unknown>);
+      const expectedKey = String(payload.bloodGroup);
+      const raw = payload.unitsRequired;
 
-      const totalUnits = Object.values(unitsObj).reduce((sum: number, v: unknown) => {
-        const n = Number(v as unknown);
-        return sum + (Number.isFinite(n) ? n : 0);
-      }, 0);
+      // Case 1: number provided directly
+      if (typeof raw === "number") {
+        if (!Number.isFinite(raw) || raw <= 0) {
+          throw new BadRequestError("unitsRequired must be a positive number");
+        }
+        // Keep as number
+        payload.unitsRequired = raw;
+      } else {
+        // Case 2: JSON provided
+        const unitsObj: Record<string, unknown> =
+          typeof raw === "string" ? JSON.parse(raw as string) : (raw as Record<string, unknown>);
 
-      if (totalUnits <= 0) {
-        throw new BadRequestError("At least one unit must be requested");
+        const keys = Object.keys(unitsObj);
+        if (keys.length !== 1) throw new BadRequestError("unitsRequired must contain exactly one blood group entry");
+
+        const key = keys[0];
+        if (key !== expectedKey) throw new BadRequestError(`unitsRequired key must match bloodGroup (${expectedKey})`);
+
+        const value = Number(unitsObj[key]);
+        if (!Number.isFinite(value) || value <= 0) throw new BadRequestError("unitsRequired value must be a positive number");
+
+        // Normalize to number for DB storage
+        payload.unitsRequired = value;
       }
-    } catch {
-      throw new BadRequestError("unitsRequired must be a valid JSON object of type->units mapping");
+    } catch (e) {
+      if (e instanceof BadRequestError) throw e;
+      throw new BadRequestError("unitsRequired must be a positive number, or a JSON object with a single matching bloodGroup");
     }
 
     // Ensure recipient medical establishment exists
@@ -92,8 +108,32 @@ const RequestService = {
     // Replace the provided id with the resolved BloodBank id for persistence
     payload.requestingBloodBankId = resolvedBloodBankId;
 
-    // Persist
-  const created = await RequestRepository.create(payload as CreateRequestInput);
+    // Persist with narrowed types for repository
+    const repoInput = {
+      bloodGroup: String(payload.bloodGroup),
+      unitsRequired: payload.unitsRequired as number,
+      urgencyLevel: String(payload.urgencyLevel),
+      requestReason: payload.requestReason,
+      requestDeliveryDate: payload.requestDeliveryDate,
+      requestDeliveryTime: payload.requestDeliveryTime,
+      medicalEstablishmentId: payload.medicalEstablishmentId,
+      requestingBloodBankId: payload.requestingBloodBankId,
+      additionalNotes: payload.additionalNotes,
+      status: payload.status ? String(payload.status) : undefined,
+    } as const;
+
+    const created = await RequestRepository.create(repoInput as unknown as {
+      bloodGroup: string;
+      unitsRequired: number;
+      urgencyLevel: string;
+      requestReason: string;
+      requestDeliveryDate: string | Date;
+      requestDeliveryTime: string;
+      medicalEstablishmentId: string;
+      requestingBloodBankId?: string;
+      additionalNotes?: string;
+      status?: string;
+    });
     return created;
   },
 };

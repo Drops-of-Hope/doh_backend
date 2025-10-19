@@ -364,7 +364,7 @@ model BloodRequest {
 model Request {
   id                     String               @id @default(uuid())
   bloodGroup             BloodGroup
-  unitsRequired          Json
+  unitsRequired          Int
   urgencyLevel           UrgencyLevel
   requestReason          String
   requestDeliveryDate    DateTime

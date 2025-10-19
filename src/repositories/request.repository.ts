@@ -4,7 +4,7 @@ import type { Prisma, RequestStatus, UrgencyLevel, BloodGroup } from "@prisma/cl
 const RequestRepository = {
   create: async (data: {
     bloodGroup: string;
-    unitsRequired: Prisma.InputJsonValue;
+    unitsRequired: number;
     urgencyLevel: string;
     requestReason: string;
     requestDeliveryDate: string | Date;
@@ -17,7 +17,7 @@ const RequestRepository = {
     return await prisma.request.create({
       data: {
         bloodGroup: data.bloodGroup as BloodGroup,
-        unitsRequired: data.unitsRequired as Prisma.InputJsonValue,
+  unitsRequired: data.unitsRequired,
         urgencyLevel: data.urgencyLevel as UrgencyLevel,
         requestReason: data.requestReason,
         requestDeliveryDate: new Date(data.requestDeliveryDate as string | Date),
