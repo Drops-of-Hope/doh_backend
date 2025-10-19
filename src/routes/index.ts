@@ -9,6 +9,7 @@ import donationsRoutes from "./donations.route.js";
 import authRoutes from "./auth.route.js";
 import homeRoutes from "./home.route.js";
 import campaignsRoutes from "./campaigns.route.js";
+import requestsRoutes from "./requests.route.js";
 import emergenciesRoutes from "./emergencies.route.js";
 import qrRoutes from "./qr.route.js";
 import notificationRoutes from "./notification.route.js";
@@ -52,6 +53,9 @@ router.use("/home", homeRoutes);
 
 // Campaign routes
 router.use("/campaigns", campaignsRoutes);
+
+// Requests (public)
+router.use("/requests", requestsRoutes);
 
 // Emergency routes
 router.use("/emergencies", emergenciesRoutes);

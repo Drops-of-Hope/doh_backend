@@ -361,6 +361,24 @@ model BloodRequest {
   bloodTransits      BloodTransit[]
 }
 
+model Request {
+  id                     String               @id @default(uuid())
+  bloodGroup             BloodGroup
+  unitsRequired          Json
+  urgencyLevel           UrgencyLevel
+  requestReason          String
+  requestDeliveryDate    DateTime
+  requestDeliveryTime    String
+  medicalEstablishmentId String
+  requestingBloodBankId  String?
+  additionalNotes        String?
+  status                 RequestStatus        @default(PENDING)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  medicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
+  requestingBloodBank    BloodBank?           @relation(fields: [requestingBloodBankId], references: [id])
+}
+
 model BloodTransit {
   id                 String        @id @default(uuid())
   transitStatus      TransitStatus
@@ -406,6 +424,7 @@ model BloodBank {
   bloodRequests          BloodRequest[]
   bloodTransits          BloodTransit[]
   campaigns              Campaign[]
+  requests               Request[]
 }
 
 model MedicalEstablishment {
@@ -423,6 +442,7 @@ model MedicalEstablishment {
   equipment        Equipment[]
   hospitals        Hospital[]
   inventory        Inventory[]
+  requests         Request[]
 }
 
 model AppointmentSlot {
