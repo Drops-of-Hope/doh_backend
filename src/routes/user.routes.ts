@@ -13,6 +13,13 @@ router.post("/complete-profile", UserController.completeProfile);
 // Complete user profile (authenticated version - creates user if needed)
 router.post("/complete-profile-auth", authenticateToken, UserController.completeProfileAuthenticated);
 
+// Request Campaign Organizer role (protected) - MUST be before /:userId routes
+router.post(
+  "/request-campaign-organizer-role",
+  authenticateToken,
+  UserController.requestCampaignOrganizerRole
+);
+
 // Check if user exists
 router.get("/exists/:userId", UserController.checkUserExists);
 

@@ -42,12 +42,47 @@ export const HomeController = {
         select: { nextEligible: true, totalDonations: true, totalPoints: true },
       });
 
-      // Get upcoming appointments
+      // Get today's appointment (if any) - only 1 per user per day
+      const today = new Date();
+      const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const tomorrowDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+      const todaysAppointment = await prisma.appointment.findFirst({
+        where: {
+          donorId: userId,
+          appointmentDate: {
+            gte: todayDateOnly,
+            lt: tomorrowDateOnly,
+          },
+          scheduled: {
+            not: "CANCELLED",
+          },
+        },
+        include: {
+          medicalEstablishment: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              region: true,
+            },
+          },
+          slot: {
+            select: {
+              id: true,
+              startTime: true,
+              endTime: true,
+            },
+          },
+        },
+      });
+
+      // Get upcoming appointments (excluding today's)
       const upcomingAppointments = await prisma.appointment.findMany({
         where: {
           donorId: userId,
           appointmentDate: {
-            gte: new Date(),
+            gte: tomorrowDateOnly,
           },
           scheduled: "PENDING",
         },
@@ -140,9 +175,28 @@ export const HomeController = {
                 eligibleToDonate: eligibleToDonateComputed,
                 nextEligibleDate: nextEligibleDateComputed,
                 nextAppointmentDate:
-                  upcomingAppointments[0]?.appointmentDate || null,
-                nextAppointmentId: upcomingAppointments[0]?.id || null,
+                  todaysAppointment?.appointmentDate || upcomingAppointments[0]?.appointmentDate || null,
+                nextAppointmentId: todaysAppointment?.id || upcomingAppointments[0]?.id || null,
               },
+          todaysAppointment: todaysAppointment
+            ? {
+                id: todaysAppointment.id,
+                appointmentDateTime: todaysAppointment.appointmentDate.toISOString(),
+                scheduled: todaysAppointment.scheduled,
+                medicalEstablishment: {
+                  id: todaysAppointment.medicalEstablishment.id,
+                  name: todaysAppointment.medicalEstablishment.name,
+                  address: todaysAppointment.medicalEstablishment.address,
+                  district: todaysAppointment.medicalEstablishment.region,
+                },
+                slot: {
+                  id: todaysAppointment.slot?.id || null,
+                  startTime: todaysAppointment.slot?.startTime || "09:00",
+                  endTime: todaysAppointment.slot?.endTime || "17:00",
+                },
+                location: todaysAppointment.medicalEstablishment.address,
+              }
+            : null,
           upcomingAppointments: upcomingAppointments.map((apt) => ({
             id: apt.id,
             donorId: apt.donorId,
@@ -312,12 +366,48 @@ export const HomeController = {
         select: { nextEligible: true, totalDonations: true, totalPoints: true },
       });
 
-      // Get upcoming appointments
+      // Get today's appointment (if any) - only 1 per user per day
+      // Use SQL date comparison to avoid timezone issues
+      const today = new Date();
+      const todayDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      const tomorrowDateOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+
+      const todaysAppointment = await prisma.appointment.findFirst({
+        where: {
+          donorId: userId,
+          appointmentDate: {
+            gte: todayDateOnly,
+            lt: tomorrowDateOnly,
+          },
+          scheduled: {
+            not: "CANCELLED",
+          },
+        },
+        include: {
+          medicalEstablishment: {
+            select: {
+              id: true,
+              name: true,
+              address: true,
+              region: true,
+            },
+          },
+          slot: {
+            select: {
+              id: true,
+              startTime: true,
+              endTime: true,
+            },
+          },
+        },
+      });
+
+      // Get upcoming appointments (excluding today's)
       const upcomingAppointments = await prisma.appointment.findMany({
         where: {
           donorId: userId,
           appointmentDate: {
-            gte: new Date(),
+            gte: tomorrowDateOnly,
           },
         },
         include: {
@@ -427,6 +517,25 @@ export const HomeController = {
                 nextAppointmentId: upcomingAppointments[0]?.id || null,
                 lastUpdated: new Date().toISOString(),
               },
+          todaysAppointment: todaysAppointment
+            ? {
+                id: todaysAppointment.id,
+                appointmentDateTime: todaysAppointment.appointmentDate.toISOString(),
+                scheduled: todaysAppointment.scheduled,
+                medicalEstablishment: {
+                  id: todaysAppointment.medicalEstablishment.id,
+                  name: todaysAppointment.medicalEstablishment.name,
+                  address: todaysAppointment.medicalEstablishment.address,
+                  district: todaysAppointment.medicalEstablishment.region,
+                },
+                slot: {
+                  id: todaysAppointment.slot?.id || null,
+                  startTime: todaysAppointment.slot?.startTime || "09:00",
+                  endTime: todaysAppointment.slot?.endTime || "17:00",
+                },
+                location: todaysAppointment.medicalEstablishment.address,
+              }
+            : null,
           upcomingAppointments: upcomingAppointments.map((apt) => ({
             id: apt.id,
             donorId: apt.donorId,
