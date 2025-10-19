@@ -13,4 +13,7 @@ router.get('/history', authenticateToken, DonationsController.getDonationHistory
 // Retrieve a donation form by ID
 router.get('/form/:id', DonationsController.getDonationFormById);
 
+// Public: get past donations for a donor (place and date)
+router.get('/history/by-donor', DonationsController.getPastDonationsByDonor);
+
 export default router;

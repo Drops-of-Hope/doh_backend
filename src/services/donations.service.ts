@@ -29,4 +29,18 @@ export const DonationsService = {
     const donationForm = await DonationsRepository.findDonationFormById(id);
     return donationForm;
   },
+
+  // Given a donorId, return past donations with place and date
+  getPastDonationsByDonor: async (donorId: string) => {
+    if (!donorId) throw new Error("donorId is required");
+    const rows = await DonationsRepository.findPastDonationsByDonor(donorId);
+    return rows.map((r) => {
+      const placeName = r.bloodDonationForm?.appointment?.medicalEstablishment?.name || null;
+      const donationDate = r.endTime ?? r.startTime;
+      return {
+        donationDate,
+        placeName,
+      };
+    });
+  },
 };
