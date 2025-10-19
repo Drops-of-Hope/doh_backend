@@ -29,6 +29,9 @@ router.get('/completed/medical-establishment/:medicalEstablishmentId', Campaigns
 // GET /campaigns/:id - Get single campaign details
 router.get("/:id", CampaignsController.getCampaignDetails);
 
+// GET /campaigns/:id/participation-status - Count active participants
+router.get('/:id/participation-status', CampaignsController.getParticipationStatus);
+
 // POST /campaigns - Create new campaign
 router.post("/", authenticateToken, CampaignsController.createCampaign);
 
@@ -44,8 +47,6 @@ router.post("/:id/join", authenticateToken, CampaignsController.joinCampaign);
 // GET /campaigns/organizer/:organizerId - Get campaigns by organizer
 router.get("/organizer/:organizerId", authenticateToken, CampaignsController.getCampaignsByOrganizer);
 
-// POST /campaigns - Create new campaign
-router.post("/", authenticateToken, CampaignsController.createCampaign);
 
 // GET /campaigns/:campaignId/stats - Get campaign statistics
 router.get("/:campaignId/stats", authenticateToken, CampaignsController.getCampaignStats);

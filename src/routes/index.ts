@@ -52,6 +52,8 @@ router.use("/home", homeRoutes);
 
 // Campaign routes
 router.use("/campaigns", campaignsRoutes);
+// Backward-compatible alias (some clients call '/camp')
+router.use("/camp", campaignsRoutes);
 
 // Emergency routes
 router.use("/emergencies", emergenciesRoutes);
