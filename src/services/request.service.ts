@@ -17,7 +17,7 @@ export type CreateRequestInput = {
   requestDeliveryDate: string | Date;
   requestDeliveryTime: string;
   medicalEstablishmentId: string;
-  requestingBloodBankId?: string;
+  requestingBloodBankId: string;
   additionalNotes?: string;
   status?: RequestStatus | string;
 };
@@ -52,11 +52,45 @@ const RequestService = {
       throw new BadRequestError("unitsRequired must be a valid JSON object of type->units mapping");
     }
 
-    // Optionally ensure medical establishment exists
-    const med = await prisma.medicalEstablishment.findUnique({ where: { id: payload.medicalEstablishmentId } });
-    if (!med) {
-      throw new BadRequestError("medicalEstablishmentId not found");
+    // Ensure recipient medical establishment exists
+    const recipient = await prisma.medicalEstablishment.findUnique({ where: { id: payload.medicalEstablishmentId } });
+    if (!recipient) {
+      throw new BadRequestError("medicalEstablishmentId (recipient) not found");
     }
+
+    // Requesting medical establishment (the requester) is required
+    if (!payload.requestingBloodBankId) {
+      throw new BadRequestError("requestingBloodBankId (requester medical establishment) is required");
+    }
+
+    // Ensure requesting medical establishment exists
+    const requester = await prisma.medicalEstablishment.findUnique({ where: { id: payload.requestingBloodBankId } });
+    if (!requester) {
+      throw new BadRequestError("requestingBloodBankId (requester) not found");
+    }
+
+    // Resolve requestingBloodBankId to an actual BloodBank.id
+    // Clients may pass the medicalEstablishmentId of the blood bank; find the BloodBank record if available
+    let resolvedBloodBankId: string | undefined = undefined;
+
+    // First try whether the provided id matches an existing BloodBank.id
+    const directBank = await prisma.bloodBank.findUnique({ where: { id: payload.requestingBloodBankId } });
+    if (directBank) {
+      resolvedBloodBankId = directBank.id;
+    } else {
+      // Otherwise try to find a BloodBank whose medicalEstablishmentId equals the provided id
+      const bankByMed = await prisma.bloodBank.findFirst({ where: { medicalEstablishmentId: payload.requestingBloodBankId } });
+      if (bankByMed) resolvedBloodBankId = bankByMed.id;
+    }
+
+    if (!resolvedBloodBankId) {
+      throw new BadRequestError(
+        "No BloodBank found for the provided requestingBloodBankId. Provide a valid BloodBank.id or create a BloodBank linked to the MedicalEstablishment."
+      );
+    }
+
+    // Replace the provided id with the resolved BloodBank id for persistence
+    payload.requestingBloodBankId = resolvedBloodBankId;
 
     // Persist
   const created = await RequestRepository.create(payload as CreateRequestInput);
