@@ -20,6 +20,37 @@ export const BloodController = {
       res.status(500).json({ message: "Internal server error" });
     }
   },
+  checkAvailabilityByDeadline: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { medical_establishment_id, blood_group, deadline, user_id } = req.body ?? {};
+
+      if (!medical_establishment_id || typeof medical_establishment_id !== "string") {
+        res.status(400).json({ message: "medical_establishment_id is required and must be a string" });
+        return;
+      }
+      // Accept either user_id (preferred) or blood_group
+      if (!user_id && (!blood_group || typeof blood_group !== "string")) {
+        res.status(400).json({ message: "Provide either user_id or blood_group (string)" });
+        return;
+      }
+      if (!deadline || (typeof deadline !== "string" && !(deadline instanceof Date))) {
+        res.status(400).json({ message: "deadline is required and must be a date string (YYYY-MM-DD or ISO) or Date" });
+        return;
+      }
+
+      const { totalAvailableUnits } = await BloodService.checkAvailabilityByDeadline(
+        medical_establishment_id,
+        blood_group,
+        deadline,
+        user_id
+      );
+
+      res.status(200).json({ message: "Success.", available_units: totalAvailableUnits });
+    } catch (error) {
+      console.error("Error checking blood availability by deadline:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
   checkAvailability: async (req: Request, res: Response): Promise<void> => {
     try {
       const { inventory_id, blood_group, number_of_units_requested } =
@@ -261,6 +292,35 @@ export const BloodController = {
       });
     } catch (error) {
       console.error("Error listing units by blood group:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  },
+  // GET /api/blood/non-expired?inventory_id=...&blood_group=...
+  listNonExpiredUnitsByGroup: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { inventory_id, blood_group } = req.query as Record<string, string | undefined>;
+      if (!inventory_id) {
+        res.status(400).json({ message: "inventory_id is required" });
+        return;
+      }
+      if (!blood_group) {
+        res.status(400).json({ message: "blood_group is required" });
+        return;
+      }
+
+      const { items, totalAvailableUnits, count } = await BloodService.listNonExpiredUnitsByGroup(
+        inventory_id,
+        blood_group
+      );
+
+      res.status(200).json({
+        message: "Success.",
+        available_units: totalAvailableUnits,
+        count,
+        data: items,
+      });
+    } catch (error) {
+      console.error("Error listing non-expired units by group:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   },

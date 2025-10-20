@@ -89,6 +89,72 @@ export const BloodService = {
 
     return { totalStock, safeUnits, expiredUnits, nearingExpiryUnits };
   },
+  // Availability checker with deadline filter (exclude units expired by given deadline)
+  checkAvailabilityByDeadline: async (
+    medicalEstablishmentId: string,
+    bloodGroup: string | undefined,
+    deadline: string | Date,
+    userId?: string
+  ): Promise<{ totalAvailableUnits: number; matchingCount: number }> => {
+    // Resolve blood group: prefer user's bloodGroup if userId provided; else parse incoming bloodGroup
+    let resolvedBg: BloodGroup | null = null;
+    if (userId) {
+      const user = await prisma.user.findUnique({ where: { id: userId }, select: { bloodGroup: true } });
+      resolvedBg = user?.bloodGroup ?? null;
+    }
+    if (!resolvedBg) {
+      resolvedBg = toBloodGroupEnum(bloodGroup ?? null);
+    }
+
+    // Normalize deadline to end-of-day in UTC when a date-only string is provided
+    let d: Date;
+    if (typeof deadline === "string") {
+      const trimmed = deadline.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [y, m, day] = trimmed.split("-").map(Number);
+        d = new Date(Date.UTC(y, m - 1, day, 23, 59, 59, 999));
+      } else {
+        // Fall back to Date parse for ISO strings
+        d = new Date(trimmed);
+      }
+    } else {
+      d = new Date(deadline);
+    }
+    if (Number.isNaN(d.getTime())) throw new Error("Invalid deadline date");
+
+    const now = new Date();
+    const cutoff = new Date(Math.max(now.getTime(), d.getTime()));
+
+    const where: Prisma.BloodWhereInput = {
+      inventory: { is: { EstablishmentId: medicalEstablishmentId } },
+      status: TestStatus.SAFE,
+      consumed: false,
+      disposed: false,
+      // Not expired at the later of (now, deadline)
+      expiryDate: { gt: cutoff },
+      ...(resolvedBg
+        ? {
+            bloodDonation: {
+              is: {
+                user: { is: { bloodGroup: resolvedBg } },
+              },
+            },
+          }
+        : {}),
+    };
+
+    const records = await prisma.blood.findMany({ where });
+
+    const totalAvailableUnits = records.reduce((sum, r) => {
+      const maybeUnits = (r as unknown as { available_units?: number })
+        .available_units;
+      if (maybeUnits === undefined || maybeUnits === null) return sum + 1;
+      const units = Number(maybeUnits);
+      return sum + (Number.isFinite(units) ? units : 0);
+    }, 0);
+
+    return { totalAvailableUnits, matchingCount: records.length };
+  },
   // Group SAFE, not consumed units by ABO blood group with counts and items
   listUnitsByBloodGroup: async (
     inventoryId: string
@@ -253,6 +319,47 @@ export const BloodService = {
       inventoryId,
       status: TestStatus.SAFE,
       consumed: false,
+      ...(bgEnum
+        ? {
+            bloodTests: {
+              some: {
+                ABOTest: bgEnum,
+              },
+            },
+          }
+        : {}),
+    } satisfies Prisma.BloodWhereInput;
+
+    const records = await prisma.blood.findMany({ where });
+
+    const totalAvailableUnits = records.reduce((sum, r) => {
+      const maybeUnits = (r as unknown as { available_units?: number })
+        .available_units;
+      if (maybeUnits === undefined || maybeUnits === null) return sum + 1;
+      const units = Number(maybeUnits);
+      return sum + (Number.isFinite(units) ? units : 0);
+    }, 0);
+
+    return { items: records, totalAvailableUnits, count: records.length };
+  },
+  // List non-expired, SAFE, not-consumed units for a given blood group
+  listNonExpiredUnitsByGroup: async (
+    inventoryId: string,
+    bloodGroup: string
+  ): Promise<{
+    items: unknown[];
+    totalAvailableUnits: number;
+    count: number;
+  }> => {
+    const bgEnum = toBloodGroupEnum(bloodGroup);
+    const now = new Date();
+
+    const where = {
+      inventoryId,
+      status: TestStatus.SAFE,
+      consumed: false,
+      disposed: false,
+      expiryDate: { gt: now },
       ...(bgEnum
         ? {
             bloodTests: {
