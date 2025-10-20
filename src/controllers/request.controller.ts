@@ -17,19 +17,24 @@ export const RequestController = {
         res.status(500).json({ message: "Internal server error" });
       } else {
         // error is unknown, attempt to stringify
-        const msg = typeof error === 'string' ? error : JSON.stringify(error);
+        const msg = typeof error === "string" ? error : JSON.stringify(error);
         res.status(500).json({ message: msg });
       }
     }
   },
   getPendingByRecipient: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { medicalEstablishmentId } = req.query as Record<string, string | undefined>;
+      const { medicalEstablishmentId } = req.query as Record<
+        string,
+        string | undefined
+      >;
       if (!medicalEstablishmentId) {
         res.status(400).json({ message: "medicalEstablishmentId is required" });
         return;
       }
-      const data = await RequestService.getPendingByRecipient(medicalEstablishmentId);
+      const data = await RequestService.getPendingByRecipient(
+        medicalEstablishmentId
+      );
       res.status(200).json({ message: "Success", data });
     } catch (error) {
       console.error("Error fetching pending requests by recipient:", error);
@@ -42,12 +47,18 @@ export const RequestController = {
   },
   getPendingByRequester: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { medicalEstablishmentId } = req.query as Record<string, string | undefined>;
+      const { medicalEstablishmentId } = req.query as Record<
+        string,
+        string | undefined
+      >;
       if (!medicalEstablishmentId) {
         res.status(400).json({ message: "medicalEstablishmentId is required" });
         return;
       }
-      const data = await RequestService.getPendingByRequesterByMedicalEstablishmentId(medicalEstablishmentId);
+      const data =
+        await RequestService.getPendingByRequesterByMedicalEstablishmentId(
+          medicalEstablishmentId
+        );
       res.status(200).json({ message: "Success", data });
     } catch (error) {
       console.error("Error fetching pending requests by requester:", error);
@@ -60,7 +71,10 @@ export const RequestController = {
   },
   getSummary: async (req: Request, res: Response): Promise<void> => {
     try {
-      const { medicalEstablishmentId } = req.query as Record<string, string | undefined>;
+      const { medicalEstablishmentId } = req.query as Record<
+        string,
+        string | undefined
+      >;
       if (!medicalEstablishmentId) {
         res.status(400).json({ message: "medicalEstablishmentId is required" });
         return;
