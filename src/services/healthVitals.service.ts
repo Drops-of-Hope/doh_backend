@@ -1,6 +1,7 @@
-import { HealthVitalsRepository } from '../repositories/healthVitals.repository.js';
+import { HealthVitalsRepository } from "../repositories/healthVitals.repository.js";
 
 export const HealthVitalsService = {
   create: HealthVitalsRepository.create,
   getByAppointmentId: HealthVitalsRepository.getByAppointmentId,
+  getByUserId: HealthVitalsRepository.getByUserId,
 };
