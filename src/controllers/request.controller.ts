@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import RequestService from "../services/request.service";
+import RequestService from "../services/request.service.js";
 import { BadRequestError } from "../services/request.service.js";
 export const RequestController = {
   createRequest: async (req: Request, res: Response): Promise<void> => {

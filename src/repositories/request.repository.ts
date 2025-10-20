@@ -5,6 +5,7 @@ import {
   BloodGroup,
   TransitStatus,
 } from "@prisma/client";
+import { randomUUID } from "crypto";
 
 const RequestRepository = {
   create: async (data: {
@@ -21,24 +22,24 @@ const RequestRepository = {
   }) => {
     return await prisma.request.create({
       data: {
+        id: randomUUID(),
         bloodGroup: data.bloodGroup as BloodGroup,
-  unitsRequired: data.unitsRequired,
+        unitsRequired: data.unitsRequired,
         urgencyLevel: data.urgencyLevel as UrgencyLevel,
         requestReason: data.requestReason,
-        requestDeliveryDate: new Date(data.requestDeliveryDate as string | Date),
+        requestDeliveryDate: new Date(
+          data.requestDeliveryDate as string | Date
+        ),
         requestDeliveryTime: data.requestDeliveryTime,
+        medicalEstablishmentId: data.medicalEstablishmentId,
+        requestingBloodBankId: data.requestingBloodBankId,
         additionalNotes: data.additionalNotes || undefined,
         status: data.status as RequestStatus | undefined,
-        medicalEstablishment: {
-          connect: { id: data.medicalEstablishmentId },
-        },
-        ...(data.requestingBloodBankId
-          ? { requestingBloodBank: { connect: { id: data.requestingBloodBankId } } }
-          : {}),
+        updatedAt: new Date(),
       },
       include: {
-        medicalEstablishment: true,
-        requestingBloodBank: true,
+        MedicalEstablishment: true,
+        BloodBank: true,
       },
     });
   },
@@ -50,8 +51,8 @@ const RequestRepository = {
       },
       orderBy: { createdAt: "desc" },
       include: {
-        medicalEstablishment: true,
-        requestingBloodBank: true,
+        MedicalEstablishment: true,
+        BloodBank: true,
       },
     });
   },
@@ -63,28 +64,28 @@ const RequestRepository = {
       },
       orderBy: { createdAt: "desc" },
       include: {
-        medicalEstablishment: true,
-        requestingBloodBank: true,
+        MedicalEstablishment: true,
+        BloodBank: true,
       },
     });
   },
-    findPendingByRequesterByMedicalEstablishmentId: async (
-      medicalEstablishmentId: string
-    ) => {
-      return prisma.request.findMany({
-        where: {
-          requestingBloodBank: {
-            medicalEstablishmentId,
-          },
-          status: RequestStatus.PENDING,
+  findPendingByRequesterByMedicalEstablishmentId: async (
+    medicalEstablishmentId: string
+  ) => {
+    return prisma.request.findMany({
+      where: {
+        BloodBank: {
+          medicalEstablishmentId,
         },
-        orderBy: { createdAt: "desc" },
-        include: {
-          medicalEstablishment: true,
-          requestingBloodBank: true,
-        },
-      });
-    },
+        status: RequestStatus.PENDING,
+      },
+      orderBy: { createdAt: "desc" },
+      include: {
+        MedicalEstablishment: true,
+        BloodBank: true,
+      },
+    });
+  },
   getSummary: async (medicalEstablishmentId: string) => {
     // Incoming: requests where this med establishment is the recipient
     const incoming = await prisma.request.count({
@@ -94,7 +95,7 @@ const RequestRepository = {
     // Outgoing: requests initiated by a blood bank that belongs to this med establishment
     const outgoing = await prisma.request.count({
       where: {
-        requestingBloodBank: {
+        BloodBank: {
           medicalEstablishmentId,
         },
       },

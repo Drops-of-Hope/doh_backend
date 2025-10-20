@@ -216,9 +216,9 @@ model HealthVital {
   id            String       @id @default(uuid())
   userId        String
   appointmentId String?      @unique
-  weight        String       // Encrypted as string
-  bp            String       // Encrypted as string
-  cvsPulse      String       // Encrypted as string
+  weight        String
+  bp            String
+  cvsPulse      String
   dateTime      DateTime     @default(now())
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   user          User         @relation(fields: [userId], references: [id])
