@@ -1,5 +1,5 @@
 import { prisma } from "../config/db.js";
-import { randomUUID } from "node:crypto";
+import { randomUUID } from "crypto";
 import {
   RequestStatus,
   UrgencyLevel,
@@ -20,23 +20,23 @@ const RequestRepository = {
     additionalNotes?: string;
     status?: string;
   }) => {
+    // Prisma schema requires `id` and `updatedAt` for Request (no defaults). Provide them here.
     return await prisma.request.create({
       data: {
         id: randomUUID(),
         bloodGroup: data.bloodGroup as BloodGroup,
-  unitsRequired: data.unitsRequired,
+        unitsRequired: data.unitsRequired,
         urgencyLevel: data.urgencyLevel as UrgencyLevel,
         requestReason: data.requestReason,
         requestDeliveryDate: new Date(data.requestDeliveryDate as string | Date),
         requestDeliveryTime: data.requestDeliveryTime,
         additionalNotes: data.additionalNotes || undefined,
         status: data.status as RequestStatus | undefined,
-        updatedAt: new Date(),
-        MedicalEstablishment: {
+        medicalEstablishment: {
           connect: { id: data.medicalEstablishmentId },
         },
         ...(data.requestingBloodBankId
-          ? { BloodBank: { connect: { id: data.requestingBloodBankId } } }
+          ? { requestingBloodBank: { connect: { id: data.requestingBloodBankId } } }
           : {}),
       },
       include: {
@@ -75,27 +75,17 @@ const RequestRepository = {
       medicalEstablishmentId: string
     ) => {
       return prisma.request.findMany({
+        // Filter requests where the requesting blood bank belongs to the given medical establishment.
         where: {
-          BloodBank: { is: { medicalEstablishmentId } },
+          requestingBloodBank: {
+            medicalEstablishmentId,
+          },
           status: RequestStatus.PENDING,
         },
         orderBy: { createdAt: "desc" },
         include: {
-          MedicalEstablishment: true,
-          BloodBank: true,
-        },
-      });
-    },
-    findById: async (id: string) => {
-      return prisma.request.findUnique({
-        where: { id },
-        include: {
-          MedicalEstablishment: true,
-          BloodBank: {
-            include: {
-              medicalEstablishment: true,
-            },
-          },
+          medicalEstablishment: true,
+          requestingBloodBank: true,
         },
       });
     },
@@ -108,7 +98,9 @@ const RequestRepository = {
     // Outgoing: requests initiated by a blood bank that belongs to this med establishment
     const outgoing = await prisma.request.count({
       where: {
-        BloodBank: { is: { medicalEstablishmentId } },
+        requestingBloodBank: {
+          medicalEstablishmentId,
+        },
       },
     });
 

@@ -29,11 +29,15 @@ import bloodTransitRoutes from "./bloodTransit.route.js";
 import bloodEquipmentRoutes from "./bloodEquipment.route.js";
 import donationReportsRoutes from "./donationReports.route.js";
 import bloodBankHomeRoutes from "./bloodBankHome.route.js";
+import userSearchRoutes from "./userSearch.route.js";
 
 const router = Router();
 
 // Authentication routes
 router.use("/auth", authRoutes);
+
+// User search routes (must be before /users to match /users/search)
+router.use("/users", userSearchRoutes);
 
 // User routes
 router.use("/users", userRoutes);

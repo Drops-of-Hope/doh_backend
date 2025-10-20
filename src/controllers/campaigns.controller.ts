@@ -1,9 +1,18 @@
 import { Request, Response } from "express";
-import { PrismaClient, ParticipationStatus, Prisma, ApprovalStatus } from "@prisma/client";
+import {
+  PrismaClient,
+  ParticipationStatus,
+  Prisma,
+  ApprovalStatus,
+} from "@prisma/client";
 import { CampaignService } from "../services/campaigns.service.js";
 import { PushService } from "../services/push.service.js";
 import { SSE } from "../utils/sse.js";
-import { QRScanResultType, ScanQRRequest, MarkAttendanceQRRequest } from "../types/qr.types.js";
+import {
+  QRScanResultType,
+  ScanQRRequest,
+  MarkAttendanceQRRequest,
+} from "../types/qr.types.js";
 
 const prisma = new PrismaClient();
 
@@ -19,26 +28,59 @@ interface AuthenticatedRequest extends Request {
 
 export const CampaignsController = {
   // GET /campaigns/:id/participation-status - Count participants excluding NO_SHOW and CANCELLED
-  getParticipationStatus: async (req: Request, res: Response): Promise<void> => {
+  getParticipationStatus: async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const { id } = req.params;
       if (!id) {
-        res.status(400).json({ success: false, error: 'Campaign id is required', count: 0, data: { count: 0 } });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: "Campaign id is required",
+            count: 0,
+            data: { count: 0 },
+          });
         return;
       }
 
       // Optional existence check; keep it lightweight
-      const campaignExists = await prisma.campaign.findUnique({ where: { id }, select: { id: true } });
+      const campaignExists = await prisma.campaign.findUnique({
+        where: { id },
+        select: { id: true },
+      });
       if (!campaignExists) {
-        res.status(404).json({ success: false, error: 'Campaign not found', count: 0, data: { count: 0 } });
+        res
+          .status(404)
+          .json({
+            success: false,
+            error: "Campaign not found",
+            count: 0,
+            data: { count: 0 },
+          });
         return;
       }
 
       const result = await CampaignService.getParticipationStatus(id);
-      res.status(200).json({ success: true, count: result.count, data: { count: result.count } });
+      res
+        .status(200)
+        .json({
+          success: true,
+          count: result.count,
+          data: { count: result.count },
+        });
     } catch (error) {
-      console.error('Get participation status error:', error);
-      res.status(500).json({ success: false, error: 'Internal server error', count: 0, data: { count: 0 } });
+      console.error("Get participation status error:", error);
+      res
+        .status(500)
+        .json({
+          success: false,
+          error: "Internal server error",
+          count: 0,
+          data: { count: 0 },
+        });
     }
   },
 
@@ -46,7 +88,7 @@ export const CampaignsController = {
   getCampaigns: async (req: Request, res: Response): Promise<void> => {
     try {
       const { status, limit = "10", featured, page = "1" } = req.query;
-      
+
       const limitNum = parseInt(limit as string);
       const pageNum = parseInt(page as string);
       const skip = (pageNum - 1) * limitNum;
@@ -57,7 +99,10 @@ export const CampaignsController = {
           success: false,
           error: "Invalid pagination parameters",
           campaigns: [],
-          data: { campaigns: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0 } },
+          data: {
+            campaigns: [],
+            pagination: { currentPage: 1, totalPages: 0, totalItems: 0 },
+          },
         });
         return;
       }
@@ -92,8 +137,11 @@ export const CampaignsController = {
         campaigns = result.data?.campaigns || [];
         totalCount = result.data?.pagination?.totalItems || 0;
       } catch (serviceError) {
-        console.warn('Service error, falling back to direct query:', serviceError);
-        
+        console.warn(
+          "Service error, falling back to direct query:",
+          serviceError
+        );
+
         // Fallback to direct Prisma query
         const [campaignResults, count] = await Promise.all([
           prisma.campaign.findMany({
@@ -117,10 +165,12 @@ export const CampaignsController = {
             skip,
             take: limitNum,
           }),
-          prisma.campaign.count({ where: where as unknown as Prisma.CampaignWhereInput }),
+          prisma.campaign.count({
+            where: where as unknown as Prisma.CampaignWhereInput,
+          }),
         ]);
 
-        campaigns = campaignResults.map(campaign => ({
+        campaigns = campaignResults.map((campaign) => ({
           id: campaign.id,
           title: campaign.title,
           type: campaign.type,
@@ -186,78 +236,127 @@ export const CampaignsController = {
   },
 
   // GET /campaigns/completed/medical-establishment/:medicalEstablishmentId
-  getCompletedCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+  getCompletedCampaignsByMedicalEstablishment: async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const { medicalEstablishmentId } = req.params;
-      const { page = '1', limit = '10' } = req.query;
+      const { page = "1", limit = "10" } = req.query;
 
       if (!medicalEstablishmentId) {
-        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: "medicalEstablishmentId is required",
+          });
         return;
       }
 
       const pageNum = parseInt(page as string);
       const limitNum = parseInt(limit as string);
       if (isNaN(pageNum) || isNaN(limitNum) || pageNum <= 0 || limitNum <= 0) {
-        res.status(400).json({ success: false, error: 'Invalid pagination parameters' });
+        res
+          .status(400)
+          .json({ success: false, error: "Invalid pagination parameters" });
         return;
       }
 
-      const result = await CampaignService.getCompletedByMedicalEstablishment(medicalEstablishmentId, { page: pageNum, limit: limitNum });
+      const result = await CampaignService.getCompletedByMedicalEstablishment(
+        medicalEstablishmentId,
+        { page: pageNum, limit: limitNum }
+      );
       const campaigns = result.data?.campaigns || [];
-      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+      const pagination = result.data?.pagination || {
+        page: pageNum,
+        limit: limitNum,
+        total: 0,
+        totalPages: 0,
+      };
 
-      res.status(200).json({ success: true, campaigns, data: { campaigns, pagination } });
+      res
+        .status(200)
+        .json({ success: true, campaigns, data: { campaigns, pagination } });
     } catch (error) {
-      console.error('Get completed campaigns by medical establishment error:', error);
-      res.status(500).json({ success: false, error: 'Internal server error' });
+      console.error(
+        "Get completed campaigns by medical establishment error:",
+        error
+      );
+      res.status(500).json({ success: false, error: "Internal server error" });
     }
   },
 
   // GET /campaigns/medical-establishment/:medicalEstablishmentId/summary
-  getMedicalEstablishmentSummary: async (req: Request, res: Response): Promise<void> => {
+  getMedicalEstablishmentSummary: async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const { medicalEstablishmentId } = req.params;
       if (!medicalEstablishmentId) {
-        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: "medicalEstablishmentId is required",
+          });
         return;
       }
 
-      const result = await CampaignService.getEstablishmentSummary(medicalEstablishmentId);
+      const result = await CampaignService.getEstablishmentSummary(
+        medicalEstablishmentId
+      );
       res.status(200).json({ success: true, data: result.data });
     } catch (error) {
-      console.error('Get medical establishment summary error:', error);
-      res.status(500).json({ success: false, error: 'Internal server error' });
+      console.error("Get medical establishment summary error:", error);
+      res.status(500).json({ success: false, error: "Internal server error" });
     }
   },
 
   // GET /campaigns/upcoming/medical-establishment/:medicalEstablishmentId
-  getUpcomingCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+  getUpcomingCampaignsByMedicalEstablishment: async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const { medicalEstablishmentId } = req.params;
-      const { featured, limit = '5' } = req.query;
+      const { featured, limit = "5" } = req.query;
 
       if (!medicalEstablishmentId) {
-        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: "medicalEstablishmentId is required",
+          });
         return;
       }
 
       const limitNum = parseInt(limit as string);
       if (isNaN(limitNum) || limitNum <= 0) {
-        res.status(400).json({ success: false, error: 'Invalid limit parameter' });
+        res
+          .status(400)
+          .json({ success: false, error: "Invalid limit parameter" });
         return;
       }
 
-      const result = await CampaignService.getUpcomingByMedicalEstablishment(medicalEstablishmentId, {
-        featured: featured as string,
-        limit: limitNum,
-      });
+      const result = await CampaignService.getUpcomingByMedicalEstablishment(
+        medicalEstablishmentId,
+        {
+          featured: featured as string,
+          limit: limitNum,
+        }
+      );
 
       const campaigns = result.data?.campaigns || [];
       res.status(200).json({ success: true, data: { campaigns } });
     } catch (error) {
-      console.error('Get upcoming campaigns by medical establishment error:', error);
-      res.status(500).json({ success: false, error: 'Internal server error' });
+      console.error(
+        "Get upcoming campaigns by medical establishment error:",
+        error
+      );
+      res.status(500).json({ success: false, error: "Internal server error" });
     }
   },
 
@@ -289,8 +388,11 @@ export const CampaignsController = {
         const result = await CampaignService.getUpcomingCampaigns(filters);
         campaigns = result.data?.campaigns || [];
       } catch (serviceError) {
-        console.warn('Service error, falling back to direct query:', serviceError);
-        
+        console.warn(
+          "Service error, falling back to direct query:",
+          serviceError
+        );
+
         // Fallback to direct Prisma query
         const where: Prisma.CampaignWhereInput = {
           isActive: true,
@@ -315,7 +417,7 @@ export const CampaignsController = {
           take: limitNum,
         });
 
-        campaigns = campaignResults.map(campaign => ({
+        campaigns = campaignResults.map((campaign) => ({
           id: campaign.id,
           title: campaign.title,
           type: campaign.type,
@@ -357,7 +459,10 @@ export const CampaignsController = {
   },
 
   // POST /campaigns/:id/join
-  joinCampaign: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  joinCampaign: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
@@ -385,7 +490,10 @@ export const CampaignsController = {
         return;
       }
 
-      if (!campaign.isActive || campaign.isApproved !== ApprovalStatus.ACCEPTED) {
+      if (
+        !campaign.isActive ||
+        campaign.isApproved !== ApprovalStatus.ACCEPTED
+      ) {
         res.status(400).json({
           success: false,
           error: "Campaign not available",
@@ -404,12 +512,13 @@ export const CampaignsController = {
       }
 
       // Check if user already joined
-      const existingParticipation = await prisma.campaignParticipation.findFirst({
-        where: {
-          userId,
-          campaignId: id,
-        },
-      });
+      const existingParticipation =
+        await prisma.campaignParticipation.findFirst({
+          where: {
+            userId,
+            campaignId: id,
+          },
+        });
 
       if (existingParticipation) {
         res.status(409).json({
@@ -465,14 +574,32 @@ export const CampaignsController = {
       const limitNum = parseInt(limit as string);
 
       if (isNaN(pageNum) || pageNum <= 0 || isNaN(limitNum) || limitNum <= 0) {
-        res.status(400).json({ success: false, error: "Invalid pagination parameters", campaigns: [], data: { campaigns: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0 } } });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: "Invalid pagination parameters",
+            campaigns: [],
+            data: {
+              campaigns: [],
+              pagination: { currentPage: 1, totalPages: 0, totalItems: 0 },
+            },
+          });
         return;
       }
 
-      const result = await CampaignService.getPendingCampaigns({ page: pageNum, limit: limitNum });
+      const result = await CampaignService.getPendingCampaigns({
+        page: pageNum,
+        limit: limitNum,
+      });
 
       const campaigns = result.data?.campaigns || [];
-      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+      const pagination = result.data?.pagination || {
+        page: pageNum,
+        limit: limitNum,
+        total: 0,
+        totalPages: 0,
+      };
 
       res.status(200).json({
         success: true,
@@ -484,12 +611,25 @@ export const CampaignsController = {
       });
     } catch (error) {
       console.error("Get pending campaigns error:", error);
-      res.status(500).json({ success: false, error: "Internal server error", campaigns: [], data: { campaigns: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0 } } });
+      res
+        .status(500)
+        .json({
+          success: false,
+          error: "Internal server error",
+          campaigns: [],
+          data: {
+            campaigns: [],
+            pagination: { currentPage: 1, totalPages: 0, totalItems: 0 },
+          },
+        });
     }
   },
 
   // GET /campaigns/organizer/:organizerId
-  getCampaignsByOrganizer: async (req: Request, res: Response): Promise<void> => {
+  getCampaignsByOrganizer: async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const { organizerId } = req.params;
       const { status, page = "1", limit = "10" } = req.query;
@@ -498,10 +638,12 @@ export const CampaignsController = {
       const pageNum = parseInt(page as string);
       const skip = (pageNum - 1) * limitNum;
 
-      const where: { organizerId: string; isActive?: boolean } = { organizerId };
-      
+      const where: { organizerId: string; isActive?: boolean } = {
+        organizerId,
+      };
+
       if (status) {
-        where.isActive = status === 'active';
+        where.isActive = status === "active";
       }
 
       const [campaignResults, totalCount] = await Promise.all([
@@ -509,7 +651,7 @@ export const CampaignsController = {
           where,
           skip,
           take: limitNum,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           include: {
             medicalEstablishment: {
               select: {
@@ -529,7 +671,7 @@ export const CampaignsController = {
       ]);
 
       // Transform the response to ensure proper serialization
-      const campaigns = campaignResults.map(campaign => ({
+      const campaigns = campaignResults.map((campaign) => ({
         id: campaign.id,
         title: campaign.title,
         type: campaign.type,
@@ -578,28 +720,46 @@ export const CampaignsController = {
   },
 
   // GET /campaigns/pending/medical-establishment/:medicalEstablishmentId
-  getPendingCampaignsByMedicalEstablishment: async (req: Request, res: Response): Promise<void> => {
+  getPendingCampaignsByMedicalEstablishment: async (
+    req: Request,
+    res: Response
+  ): Promise<void> => {
     try {
       const { medicalEstablishmentId } = req.params;
-      const { page = '1', limit = '10' } = req.query;
+      const { page = "1", limit = "10" } = req.query;
 
       const pageNum = parseInt(page as string);
       const limitNum = parseInt(limit as string);
 
       if (!medicalEstablishmentId) {
-        res.status(400).json({ success: false, error: 'medicalEstablishmentId is required' });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: "medicalEstablishmentId is required",
+          });
         return;
       }
 
       if (isNaN(pageNum) || isNaN(limitNum) || pageNum <= 0 || limitNum <= 0) {
-        res.status(400).json({ success: false, error: 'Invalid pagination parameters' });
+        res
+          .status(400)
+          .json({ success: false, error: "Invalid pagination parameters" });
         return;
       }
 
-      const result = await CampaignService.getPendingByMedicalEstablishment(medicalEstablishmentId, { page: pageNum, limit: limitNum });
+      const result = await CampaignService.getPendingByMedicalEstablishment(
+        medicalEstablishmentId,
+        { page: pageNum, limit: limitNum }
+      );
 
       const campaigns = result.data?.campaigns || [];
-      const pagination = result.data?.pagination || { page: pageNum, limit: limitNum, total: 0, totalPages: 0 };
+      const pagination = result.data?.pagination || {
+        page: pageNum,
+        limit: limitNum,
+        total: 0,
+        totalPages: 0,
+      };
 
       res.status(200).json({
         success: true,
@@ -610,13 +770,19 @@ export const CampaignsController = {
         },
       });
     } catch (error) {
-      console.error('Get pending campaigns by medical establishment error:', error);
-      res.status(500).json({ success: false, error: 'Internal server error' });
+      console.error(
+        "Get pending campaigns by medical establishment error:",
+        error
+      );
+      res.status(500).json({ success: false, error: "Internal server error" });
     }
   },
 
   // POST /campaigns
-  createCampaign: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  createCampaign: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const {
         title,
@@ -649,13 +815,13 @@ export const CampaignsController = {
           location,
           motivation,
           description,
-          startTime: new Date(startTime),
-          endTime: new Date(endTime),
+          startTime: startTime,
+          endTime: endTime,
           expectedDonors: parseInt(expectedDonors),
           contactPersonName,
           contactPersonPhone,
           medicalEstablishmentId,
-          organizerId: req.user?.id || '',
+          organizerId: req.user?.id || "",
           isApproved: ApprovalStatus.PENDING, // Requires approval
           requirements: requirements || {},
         },
@@ -706,7 +872,7 @@ export const CampaignsController = {
           },
         }),
         prisma.campaignParticipation.groupBy({
-          by: ['status'],
+          by: ["status"],
           where: { campaignId },
           _count: { status: true },
         }),
@@ -745,7 +911,10 @@ export const CampaignsController = {
         return acc;
       }, {} as Record<string, number>);
 
-      const totalPointsEarned = donationStats.reduce((sum, donation) => sum + donation.pointsEarned, 0);
+      const totalPointsEarned = donationStats.reduce(
+        (sum, donation) => sum + donation.pointsEarned,
+        0
+      );
 
       res.status(200).json({
         success: true,
@@ -776,7 +945,10 @@ export const CampaignsController = {
   },
 
   // POST /campaigns/:campaignId/attendance
-  markAttendance: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  markAttendance: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { campaignId } = req.params;
       const { userId, donationCompleted = false } = req.body;
@@ -796,14 +968,17 @@ export const CampaignsController = {
             userId,
             attendanceMarked: true,
             donationCompleted,
-            status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+            status: donationCompleted ? "COMPLETED" : "ATTENDED",
             pointsEarned: donationCompleted ? 10 : 5,
           },
         });
 
         // Increment campaign actual donors counter for new attendee
         try {
-          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+          await prisma.campaign.update({
+            where: { id: campaignId },
+            data: { actualDonors: { increment: 1 } },
+          });
         } catch {
           // ignore
         }
@@ -843,17 +1018,17 @@ export const CampaignsController = {
             },
           });
         } catch (e) {
-          console.warn('Push send error (manual attendance):', e);
+          console.warn("Push send error (manual attendance):", e);
         }
         try {
-          SSE.sendToUser(userId, 'attendance', {
+          SSE.sendToUser(userId, "attendance", {
             campaignId,
             participationId: created.id,
             status: created.status,
             scannedAt: created.scannedAt ?? new Date(),
           });
         } catch (e) {
-          console.warn('SSE emit error (manual attendance):', e);
+          console.warn("SSE emit error (manual attendance):", e);
         }
 
         res.status(200).json({
@@ -870,14 +1045,17 @@ export const CampaignsController = {
         data: {
           attendanceMarked: true,
           donationCompleted,
-          status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+          status: donationCompleted ? "COMPLETED" : "ATTENDED",
           pointsEarned: donationCompleted ? 10 : 5, // Example points
         },
       });
 
       if (!wasMarked) {
         try {
-          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+          await prisma.campaign.update({
+            where: { id: campaignId },
+            data: { actualDonors: { increment: 1 } },
+          });
         } catch {
           // ignore
         }
@@ -918,17 +1096,17 @@ export const CampaignsController = {
           },
         });
       } catch (e) {
-        console.warn('Push send error (manual attendance update):', e);
+        console.warn("Push send error (manual attendance update):", e);
       }
       try {
-        SSE.sendToUser(userId, 'attendance', {
+        SSE.sendToUser(userId, "attendance", {
           campaignId,
           participationId: updatedParticipation.id,
           status: updatedParticipation.status,
           scannedAt: updatedParticipation.scannedAt ?? new Date(),
         });
       } catch (e) {
-        console.warn('SSE emit error (manual attendance update):', e);
+        console.warn("SSE emit error (manual attendance update):", e);
       }
 
       res.status(200).json({
@@ -955,11 +1133,20 @@ export const CampaignsController = {
       const pageNum = parseInt(page as string);
       const skip = (pageNum - 1) * limitNum;
 
-      const where: { campaignId: string; status?: ParticipationStatus } = { campaignId };
-      
+      const where: { campaignId: string; status?: ParticipationStatus } = {
+        campaignId,
+      };
+
       if (status) {
         // Validate status is a valid ParticipationStatus
-        const validStatuses = ['REGISTERED', 'CONFIRMED', 'ATTENDED', 'COMPLETED', 'CANCELLED', 'NO_SHOW'];
+        const validStatuses = [
+          "REGISTERED",
+          "CONFIRMED",
+          "ATTENDED",
+          "COMPLETED",
+          "CANCELLED",
+          "NO_SHOW",
+        ];
         if (validStatuses.includes(status as string)) {
           where.status = status as ParticipationStatus;
         }
@@ -970,7 +1157,7 @@ export const CampaignsController = {
           where,
           skip,
           take: limitNum,
-          orderBy: { registrationDate: 'desc' },
+          orderBy: { registrationDate: "desc" },
           include: {
             user: {
               select: {
@@ -1007,18 +1194,26 @@ export const CampaignsController = {
   },
 
   // PATCH /campaigns/:campaignId/status
-  updateCampaignStatus: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  updateCampaignStatus: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { campaignId } = req.params;
-      const { isActive, isApproved } = req.body as { isActive?: boolean; isApproved?: boolean | ApprovalStatus | string };
+      const { isActive, isApproved } = req.body as {
+        isActive?: boolean;
+        isApproved?: boolean | ApprovalStatus | string;
+      };
 
       // Map possible boolean/string inputs to the enum
       let mappedApproval: ApprovalStatus | undefined = undefined;
-      if (typeof isApproved === 'boolean') {
-        mappedApproval = isApproved ? ApprovalStatus.ACCEPTED : ApprovalStatus.CANCELLED;
-      } else if (typeof isApproved === 'string') {
+      if (typeof isApproved === "boolean") {
+        mappedApproval = isApproved
+          ? ApprovalStatus.ACCEPTED
+          : ApprovalStatus.CANCELLED;
+      } else if (typeof isApproved === "string") {
         const up = isApproved.toUpperCase();
-        if (up === 'PENDING' || up === 'ACCEPTED' || up === 'CANCELLED') {
+        if (up === "PENDING" || up === "ACCEPTED" || up === "CANCELLED") {
           mappedApproval = up as ApprovalStatus;
         }
       }
@@ -1055,32 +1250,52 @@ export const CampaignsController = {
   },
 
   // PATCH /campaigns/:campaignId/approval
-  setCampaignApproval: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  setCampaignApproval: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { campaignId } = req.params;
       const { approval } = req.body; // expected 'ACCEPTED' or 'REJECTED' (or 'CANCELLED')
 
       if (!campaignId || !approval) {
-        res.status(400).json({ success: false, error: 'campaignId and approval are required' });
+        res
+          .status(400)
+          .json({
+            success: false,
+            error: "campaignId and approval are required",
+          });
         return;
       }
 
-  const result = await CampaignService.setCampaignApproval(campaignId, approval as string, (req as AuthenticatedRequest).user?.id);
+      const result = await CampaignService.setCampaignApproval(
+        campaignId,
+        approval as string,
+        (req as AuthenticatedRequest).user?.id
+      );
 
       if (!result.success) {
-        res.status(result.statusCode || 400).json({ success: false, error: result.error || 'Failed to set approval' });
+        res
+          .status(result.statusCode || 400)
+          .json({
+            success: false,
+            error: result.error || "Failed to set approval",
+          });
         return;
       }
 
       res.status(200).json({ success: true, campaign: result.campaign });
     } catch (error) {
-      console.error('Set campaign approval error:', error);
-      res.status(500).json({ success: false, error: 'Internal server error' });
+      console.error("Set campaign approval error:", error);
+      res.status(500).json({ success: false, error: "Internal server error" });
     }
   },
 
   // POST /campaigns/:campaignId/manual-attendance
-  manualAttendanceMarking: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  manualAttendanceMarking: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { campaignId } = req.params;
       const { attendees } = req.body; // Array of { userId, donationCompleted }
@@ -1103,7 +1318,7 @@ export const CampaignsController = {
               data: {
                 attendanceMarked: true,
                 donationCompleted,
-                status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+                status: donationCompleted ? "COMPLETED" : "ATTENDED",
                 pointsEarned: donationCompleted ? 10 : 5,
               },
             });
@@ -1129,7 +1344,11 @@ export const CampaignsController = {
                 e
               );
             }
-            results.push({ success: true, userId: attendee.userId, participation: updated });
+            results.push({
+              success: true,
+              userId: attendee.userId,
+              participation: updated,
+            });
           } else {
             // Auto-register on-site and mark attendance
             participation = await prisma.campaignParticipation.create({
@@ -1138,7 +1357,7 @@ export const CampaignsController = {
                 userId: attendee.userId,
                 attendanceMarked: true,
                 donationCompleted,
-                status: donationCompleted ? 'COMPLETED' : 'ATTENDED',
+                status: donationCompleted ? "COMPLETED" : "ATTENDED",
                 pointsEarned: donationCompleted ? 10 : 5,
               },
             });
@@ -1164,11 +1383,23 @@ export const CampaignsController = {
                 e
               );
             }
-            results.push({ success: true, userId: attendee.userId, participation, autoRegistered: true });
+            results.push({
+              success: true,
+              userId: attendee.userId,
+              participation,
+              autoRegistered: true,
+            });
           }
         } catch (err) {
-          console.error(`Error updating attendance for user ${attendee.userId}:`, err);
-          results.push({ success: false, userId: attendee.userId, error: 'Failed to update' });
+          console.error(
+            `Error updating attendance for user ${attendee.userId}:`,
+            err
+          );
+          results.push({
+            success: false,
+            userId: attendee.userId,
+            error: "Failed to update",
+          });
         }
       }
 
@@ -1187,7 +1418,10 @@ export const CampaignsController = {
   },
 
   // PUT /campaigns/:id - Update campaign (organizer only)
-  updateCampaign: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  updateCampaign: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
@@ -1261,11 +1495,12 @@ export const CampaignsController = {
 
       // If campaign has participants and significant changes are made, require re-approval
       const hasParticipants = existingCampaign._count.participations > 0;
-      const needsReApproval = hasParticipants && (startTime || endTime || location || expectedDonors);
+      const needsReApproval =
+        hasParticipants && (startTime || endTime || location || expectedDonors);
 
       // Prepare update data
       const updateData: Record<string, unknown> = {};
-      
+
       // Build update data conditionally
       if (title !== undefined) updateData.title = title;
       if (type !== undefined) updateData.type = type;
@@ -1274,20 +1509,23 @@ export const CampaignsController = {
       if (description !== undefined) updateData.description = description;
       if (startTime !== undefined) updateData.startTime = new Date(startTime);
       if (endTime !== undefined) updateData.endTime = new Date(endTime);
-      if (expectedDonors !== undefined) updateData.expectedDonors = parseInt(expectedDonors);
-      if (contactPersonName !== undefined) updateData.contactPersonName = contactPersonName;
-      if (contactPersonPhone !== undefined) updateData.contactPersonPhone = contactPersonPhone;
+      if (expectedDonors !== undefined)
+        updateData.expectedDonors = parseInt(expectedDonors);
+      if (contactPersonName !== undefined)
+        updateData.contactPersonName = contactPersonName;
+      if (contactPersonPhone !== undefined)
+        updateData.contactPersonPhone = contactPersonPhone;
       if (requirements !== undefined) updateData.requirements = requirements;
 
       // Handle medical establishment update using connect/disconnect
       if (medicalEstablishmentId !== undefined) {
         if (medicalEstablishmentId) {
           updateData.medicalEstablishment = {
-            connect: { id: medicalEstablishmentId }
+            connect: { id: medicalEstablishmentId },
           };
         } else {
           updateData.medicalEstablishment = {
-            disconnect: true
+            disconnect: true,
           };
         }
       }
@@ -1323,12 +1561,16 @@ export const CampaignsController = {
 
       // Create activity for campaign update
       try {
-        const { ActivityService } = await import("../services/activity.service.js");
+        const { ActivityService } = await import(
+          "../services/activity.service.js"
+        );
         await ActivityService.createActivity({
           userId,
           type: "CAMPAIGN_UPDATED",
           title: "Campaign Updated",
-          description: `Updated campaign: ${updatedCampaign.title}${needsReApproval ? " (requires re-approval)" : ""}`,
+          description: `Updated campaign: ${updatedCampaign.title}${
+            needsReApproval ? " (requires re-approval)" : ""
+          }`,
           metadata: {
             campaignId: id,
             campaignTitle: updatedCampaign.title,
@@ -1344,7 +1586,7 @@ export const CampaignsController = {
             select: { userId: true },
           });
 
-          const notificationPromises = participants.map(participant =>
+          const notificationPromises = participants.map((participant) =>
             prisma.notification.create({
               data: {
                 userId: participant.userId,
@@ -1369,7 +1611,7 @@ export const CampaignsController = {
       res.status(200).json({
         success: true,
         campaign: updatedCampaign,
-        message: needsReApproval 
+        message: needsReApproval
           ? "Campaign updated successfully. Re-approval required due to significant changes."
           : "Campaign updated successfully.",
       });
@@ -1384,7 +1626,10 @@ export const CampaignsController = {
   },
 
   // DELETE /campaigns/:id - Delete campaign (organizer only)
-  deleteCampaign: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  deleteCampaign: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
@@ -1444,7 +1689,7 @@ export const CampaignsController = {
 
       // Check if campaign has participants
       const hasParticipants = existingCampaign._count.participations > 0;
-      
+
       if (hasParticipants) {
         // Notify participants before deletion
         const participants = await prisma.campaignParticipation.findMany({
@@ -1452,7 +1697,7 @@ export const CampaignsController = {
           select: { userId: true },
         });
 
-        const notificationPromises = participants.map(participant =>
+        const notificationPromises = participants.map((participant) =>
           prisma.notification.create({
             data: {
               userId: participant.userId,
@@ -1505,7 +1750,9 @@ export const CampaignsController = {
 
       // Create activity for campaign deletion
       try {
-        const { ActivityService } = await import("../services/activity.service.js");
+        const { ActivityService } = await import(
+          "../services/activity.service.js"
+        );
         await ActivityService.createActivity({
           userId,
           type: "CAMPAIGN_CANCELLED",
@@ -1523,7 +1770,9 @@ export const CampaignsController = {
 
       res.status(200).json({
         success: true,
-        message: `Campaign "${existingCampaign.title}" deleted successfully.${hasParticipants ? " Participants have been notified." : ""}`,
+        message: `Campaign "${existingCampaign.title}" deleted successfully.${
+          hasParticipants ? " Participants have been notified." : ""
+        }`,
       });
     } catch (error) {
       console.error("Delete campaign error:", error);
@@ -1542,7 +1791,12 @@ export const CampaignsController = {
       const result = await CampaignService.getCampaignDetails(id);
 
       if (!result.success) {
-        res.status(404).json({ success: false, error: result.error || 'Campaign not found' });
+        res
+          .status(404)
+          .json({
+            success: false,
+            error: result.error || "Campaign not found",
+          });
         return;
       }
 
@@ -1558,7 +1812,10 @@ export const CampaignsController = {
   },
 
   // Mark attendance via QR scan
-  markAttendanceByQR: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  markAttendanceByQR: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { campaignId } = req.params;
       const { userId, notes }: MarkAttendanceQRRequest = req.body;
@@ -1623,7 +1880,7 @@ export const CampaignsController = {
             qrCodeScanned: true,
             scannedAt: new Date(),
             scannedById: scannerId,
-            status: 'ATTENDED',
+            status: "ATTENDED",
             pointsEarned: 5,
           },
           include: {
@@ -1640,7 +1897,10 @@ export const CampaignsController = {
 
         // Increment counter for new attendee
         try {
-          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+          await prisma.campaign.update({
+            where: { id: campaignId },
+            data: { actualDonors: { increment: 1 } },
+          });
         } catch {
           // ignore
         }
@@ -1649,9 +1909,9 @@ export const CampaignsController = {
           await prisma.activity.create({
             data: {
               userId,
-              type: 'CAMPAIGN_JOINED',
-              title: 'Joined Campaign (On-site)',
-              description: 'Registered on-site for campaign',
+              type: "CAMPAIGN_JOINED",
+              title: "Joined Campaign (On-site)",
+              description: "Registered on-site for campaign",
               metadata: { campaignId },
             },
           });
@@ -1684,7 +1944,10 @@ export const CampaignsController = {
 
       if (!wasMarkedQR) {
         try {
-          await prisma.campaign.update({ where: { id: campaignId }, data: { actualDonors: { increment: 1 } } });
+          await prisma.campaign.update({
+            where: { id: campaignId },
+            data: { actualDonors: { increment: 1 } },
+          });
         } catch {
           // ignore
         }
@@ -1736,7 +1999,10 @@ export const CampaignsController = {
   },
 
   // Process QR scan for campaign attendance
-  processQRScan: async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  processQRScan: async (
+    req: AuthenticatedRequest,
+    res: Response
+  ): Promise<void> => {
     try {
       const { campaignId } = req.params;
       const { qrData, location }: ScanQRRequest = req.body;
@@ -1762,7 +2028,8 @@ export const CampaignsController = {
         return;
       }
 
-  const scannedUserId = qrContent.userId || qrContent.scannedUserId || qrContent.uid;
+      const scannedUserId =
+        qrContent.userId || qrContent.scannedUserId || qrContent.uid;
       if (!scannedUserId) {
         res.status(400).json({
           success: false,
@@ -1775,7 +2042,11 @@ export const CampaignsController = {
       const markAttendanceRequest: MarkAttendanceQRRequest = {
         userId: scannedUserId,
         campaignId,
-        notes: `QR scan at ${location ? `${location.latitude}, ${location.longitude}` : 'unknown location'}`,
+        notes: `QR scan at ${
+          location
+            ? `${location.latitude}, ${location.longitude}`
+            : "unknown location"
+        }`,
       };
 
       // Call the mark attendance function
