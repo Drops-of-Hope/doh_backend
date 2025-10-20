@@ -39,7 +39,14 @@ export const HomeController = {
       // Also fetch the user's totals and nextEligible to compute current eligibility
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { nextEligible: true, totalDonations: true, totalPoints: true },
+        select: { nextEligible: true, totalDonations: true, totalPoints: true, donationBadge: true },
+      });
+
+      // Fetch the user's most recent blood donation endTime to show last donation date
+      const lastDonation = await prisma.bloodDonation.findFirst({
+        where: { userId },
+        orderBy: { endTime: "desc" },
+        select: { endTime: true },
       });
 
       // Get today's appointment (if any) - only 1 per user per day
@@ -123,24 +130,24 @@ export const HomeController = {
       });
 
       // Get featured campaigns
-      const featuredCampaigns = await prisma.campaign.findMany({
-        where: {
-          isActive: true,
-          startTime: {
-            gte: new Date(),
-          },
-        },
-        include: {
-          medicalEstablishment: true,
-          organizer: {
-            select: {
-              name: true,
-            },
-          },
-        },
-        orderBy: { startTime: "asc" },
-        take: 5,
-      });
+      // const featuredCampaigns = await prisma.campaign.findMany({
+      //   where: {
+      //     isActive: true,
+      //     startTime: {
+      //       gte: new Date(),
+      //     },
+      //   },
+      //   include: {
+      //     medicalEstablishment: true,
+      //     organizer: {
+      //       select: {
+      //         name: true,
+      //       },
+      //     },
+      //   },
+      //   orderBy: { startTime: "asc" },
+      //   take: 5,
+      // });
 
       // Get notifications
       const notifications = await prisma.notification.findMany({
@@ -160,20 +167,23 @@ export const HomeController = {
           userStats: userStats
             ? {
                 ...userStats,
-                // Ensure totals and next donation date are sourced from User table
+                // Ensure totals, badge and next donation date are sourced from User table
                 totalDonations:
                   user?.totalDonations ?? userStats.totalDonations,
                 totalPoints: user?.totalPoints ?? userStats.totalPoints,
+                badge: user?.donationBadge ?? null,
                 eligibleToDonate: eligibleToDonateComputed,
                 nextEligibleDate: nextEligibleDateComputed,
+                lastDonationDate: lastDonation?.endTime ?? userStats.lastDonationDate ?? null,
               }
             : {
                 totalDonations: user?.totalDonations ?? 0,
                 totalPoints: user?.totalPoints ?? 0,
                 donationStreak: 0,
-                lastDonationDate: null,
+                badge: user?.donationBadge ?? null,
                 eligibleToDonate: eligibleToDonateComputed,
                 nextEligibleDate: nextEligibleDateComputed,
+                lastDonationDate: lastDonation?.endTime ?? null,
                 nextAppointmentDate:
                   todaysAppointment?.appointmentDate || upcomingAppointments[0]?.appointmentDate || null,
                 nextAppointmentId: todaysAppointment?.id || upcomingAppointments[0]?.id || null,
@@ -229,20 +239,20 @@ export const HomeController = {
               district: emergency.hospital.district,
             },
           })),
-          featuredCampaigns: featuredCampaigns.map((campaign) => ({
-            id: campaign.id,
-            title: campaign.title,
-            type: campaign.type,
-            location: campaign.location,
-            description: campaign.description,
-            startTime: campaign.startTime,
-            endTime: campaign.endTime,
-            expectedDonors: campaign.expectedDonors,
-            actualDonors: campaign.actualDonors,
-            imageUrl: campaign.imageUrl,
-            organizer: campaign.organizer.name,
-            medicalEstablishment: campaign.medicalEstablishment,
-          })),
+          // featuredCampaigns: featuredCampaigns.map((campaign) => ({
+          //   id: campaign.id,
+          //   title: campaign.title,
+          //   type: campaign.type,
+          //   location: campaign.location,
+          //   description: campaign.description,
+          //   startTime: campaign.startTime,
+          //   endTime: campaign.endTime,
+          //   expectedDonors: campaign.expectedDonors,
+          //   actualDonors: campaign.actualDonors,
+          //   imageUrl: campaign.imageUrl,
+          //   organizer: campaign.organizer.name,
+          //   medicalEstablishment: campaign.medicalEstablishment,
+          // })),
           notifications,
         },
       });
@@ -293,7 +303,14 @@ export const HomeController = {
       // Also fetch the user's totals and nextEligible to compute eligibility
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { nextEligible: true, totalDonations: true, totalPoints: true },
+        select: { nextEligible: true, totalDonations: true, totalPoints: true, donationBadge: true },
+      });
+
+      // Fetch user's most recent blood donation endTime for stats
+      const lastDonation = await prisma.bloodDonation.findFirst({
+        where: { userId },
+        orderBy: { endTime: "desc" },
+        select: { endTime: true },
       });
 
       // Get next appointment
@@ -321,7 +338,8 @@ export const HomeController = {
           totalDonations: user?.totalDonations ?? userStats.totalDonations,
           totalPoints: user?.totalPoints ?? userStats.totalPoints,
           donationStreak: userStats.donationStreak,
-          lastDonationDate: userStats.lastDonationDate,
+          lastDonationDate: lastDonation?.endTime ?? userStats.lastDonationDate,
+          badge: user?.donationBadge ?? null,
           eligibleToDonate: eligibleToDonateComputed,
           nextEligibleDate: nextEligibleDateComputed,
           nextAppointmentDate: nextAppointment?.appointmentDate || null,
@@ -363,7 +381,14 @@ export const HomeController = {
       // Also fetch the user's totals and nextEligible to compute current eligibility
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: { nextEligible: true, totalDonations: true, totalPoints: true },
+        select: { nextEligible: true, totalDonations: true, totalPoints: true, donationBadge: true },
+      });
+
+      // Fetch user's most recent blood donation endTime for mobile home data
+      const lastDonation = await prisma.bloodDonation.findFirst({
+        where: { userId },
+        orderBy: { endTime: "desc" },
+        select: { endTime: true },
       });
 
       // Get today's appointment (if any) - only 1 per user per day
@@ -433,36 +458,36 @@ export const HomeController = {
       });
 
       // Get featured campaigns (upcoming)
-      const featuredCampaigns = await prisma.campaign.findMany({
-        where: {
-          isActive: true,
-          startTime: {
-            gte: new Date(),
-          },
-        },
-        include: {
-          medicalEstablishment: {
-            select: {
-              id: true,
-              name: true,
-              address: true,
-            },
-          },
-          organizer: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          _count: {
-            select: {
-              participations: true,
-            },
-          },
-        },
-        orderBy: { startTime: "asc" },
-        take: 10,
-      });
+      // const featuredCampaigns = await prisma.campaign.findMany({
+      //   where: {
+      //     isActive: true,
+      //     startTime: {
+      //       gte: new Date(),
+      //     },
+      //   },
+      //   include: {
+      //     medicalEstablishment: {
+      //       select: {
+      //         id: true,
+      //         name: true,
+      //         address: true,
+      //       },
+      //     },
+      //     organizer: {
+      //       select: {
+      //         id: true,
+      //         name: true,
+      //       },
+      //     },
+      //     _count: {
+      //       select: {
+      //         participations: true,
+      //       },
+      //     },
+      //   },
+      //   orderBy: { startTime: "asc" },
+      //   take: 10,
+      // });
 
       // Get active emergencies
       const emergencies = await prisma.emergencyRequest.findMany({
@@ -502,6 +527,7 @@ export const HomeController = {
                 totalPoints: user?.totalPoints ?? userStats.totalPoints,
                 eligibleToDonate: eligibleToDonateComputed,
                 nextEligibleDate: nextEligibleDateComputed,
+                lastDonationDate: lastDonation?.endTime ?? userStats.lastDonationDate ?? null,
               }
             : {
                 id: userId,
@@ -509,7 +535,7 @@ export const HomeController = {
                 totalDonations: user?.totalDonations ?? 0,
                 totalPoints: user?.totalPoints ?? 0,
                 donationStreak: 0,
-                lastDonationDate: null,
+                lastDonationDate: lastDonation?.endTime ?? null,
                 eligibleToDonate: eligibleToDonateComputed,
                 nextEligibleDate: nextEligibleDateComputed,
                 nextAppointmentDate:
@@ -553,25 +579,25 @@ export const HomeController = {
               endTime: apt.slot?.endTime || "17:00",
             },
           })),
-          featuredCampaigns: featuredCampaigns.map((campaign) => ({
-            id: campaign.id,
-            title: campaign.title,
-            type: campaign.type,
-            location: campaign.location,
-            description: campaign.description,
-            startTime: campaign.startTime.toISOString(),
-            endTime: campaign.endTime.toISOString(),
-            expectedDonors: campaign.expectedDonors,
-            actualDonors: campaign.actualDonors,
-            imageUrl: campaign.imageUrl,
-            isActive: campaign.isActive,
-            organizer: {
-              id: campaign.organizer.id,
-              name: campaign.organizer.name,
-            },
-            medicalEstablishment: campaign.medicalEstablishment,
-            participantCount: campaign._count.participations,
-          })),
+          // featuredCampaigns: featuredCampaigns.map((campaign) => ({
+          //   id: campaign.id,
+          //   title: campaign.title,
+          //   type: campaign.type,
+          //   location: campaign.location,
+          //   description: campaign.description,
+          //   startTime: campaign.startTime.toISOString(),
+          //   endTime: campaign.endTime.toISOString(),
+          //   expectedDonors: campaign.expectedDonors,
+          //   actualDonors: campaign.actualDonors,
+          //   imageUrl: campaign.imageUrl,
+          //   isActive: campaign.isActive,
+          //   organizer: {
+          //     id: campaign.organizer.id,
+          //     name: campaign.organizer.name,
+          //   },
+          //   medicalEstablishment: campaign.medicalEstablishment,
+          //   participantCount: campaign._count.participations,
+          // })),
           emergencies: emergencies.map((emergency) => ({
             id: emergency.id,
             title: emergency.title,
