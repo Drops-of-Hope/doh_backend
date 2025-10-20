@@ -36,11 +36,11 @@ const router = Router();
 // Authentication routes
 router.use("/auth", authRoutes);
 
-// User search routes (must be before /users to match /users/search)
-router.use("/users", userSearchRoutes);
-
-// User routes
+// User routes (must be before userSearchRoutes to match specific paths like /profile, /donation-history, etc.)
 router.use("/users", userRoutes);
+
+// User search routes (catch-all /:donorId pattern must come after specific user routes)
+router.use("/users", userSearchRoutes);
 
 // Appointment routes
 router.use("/appointments", appointmentsRoutes);
