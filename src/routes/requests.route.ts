@@ -15,5 +15,8 @@ router.get("/pending/by-requester", RequestController.getPendingByRequester);
 // GET /summary?medicalEstablishmentId=...
 router.get("/summary", RequestController.getSummary);
 
+// GET /:id - fetch a request by id
+router.get("/:id", RequestController.getById);
+
 export default router;
 

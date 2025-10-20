@@ -85,6 +85,19 @@ const RequestRepository = {
         },
       });
     },
+    findById: async (id: string) => {
+      return prisma.request.findUnique({
+        where: { id },
+        include: {
+          medicalEstablishment: true,
+          requestingBloodBank: {
+            include: {
+              medicalEstablishment: true,
+            },
+          },
+        },
+      });
+    },
   getSummary: async (medicalEstablishmentId: string) => {
     // Incoming: requests where this med establishment is the recipient
     const incoming = await prisma.request.count({

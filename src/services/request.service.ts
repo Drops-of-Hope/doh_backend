@@ -195,6 +195,11 @@ const RequestService = {
     if (!med) throw new BadRequestError("medicalEstablishmentId not found");
     return RequestRepository.getSummary(medicalEstablishmentId);
   },
+  getById: async (id: string) => {
+    if (!id) throw new BadRequestError("id is required");
+    const req = await RequestRepository.findById(id);
+    return req;
+  },
 };
 
 export default RequestService;
