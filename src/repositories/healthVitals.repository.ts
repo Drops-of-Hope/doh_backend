@@ -3,13 +3,14 @@ import { CreateHealthVitalInput } from '../types/index.js';
 
 export const HealthVitalsRepository = {
   create: ({ userId, appointmentId, weight, bp, cvsPulse }: CreateHealthVitalInput) =>
+    // Prisma schema defines weight, bp and cvsPulse as strings — coerce to string to match types
     prisma.healthVital.create({
       data: {
         userId,
         appointmentId,
-        weight,
-        bp,
-        cvsPulse,
+        weight: String(weight),
+        bp: String(bp),
+        cvsPulse: String(cvsPulse),
       },
     }),
 
