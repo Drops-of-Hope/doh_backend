@@ -24,9 +24,9 @@ export const HealthVitalsRepository = {
       data: {
         userId,
         appointmentId,
-        weight: encryptedData.weight as any,
-        bp: encryptedData.bp as any,
-        cvsPulse: encryptedData.cvsPulse as any,
+        weight: encryptedData.weight as string,
+        bp: encryptedData.bp as string,
+        cvsPulse: encryptedData.cvsPulse as string,
       },
     });
 
