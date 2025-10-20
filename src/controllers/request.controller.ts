@@ -91,6 +91,28 @@ export const RequestController = {
       }
     }
   },
+  getById: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { id } = req.params as { id?: string };
+      if (!id) {
+        res.status(400).json({ message: "id is required" });
+        return;
+      }
+      const data = await RequestService.getById(id);
+      if (!data) {
+        res.status(404).json({ message: "Request not found" });
+        return;
+      }
+      res.status(200).json({ message: "Success", data });
+    } catch (error) {
+      console.error("Error fetching request by id:", error);
+      if (error instanceof BadRequestError) {
+        res.status(400).json({ message: error.message });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  },
 };
 
 export default RequestController;

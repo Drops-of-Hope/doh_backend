@@ -6,4 +6,7 @@ const router = Router();
 // GET /blood-bank/transit-requests?bloodBankId=... or ?hospitalId=...
 router.get("/transit-requests", BloodTransitController.getTransitRequests);
 
+// POST /blood-bank/transits
+router.post("/transits", BloodTransitController.createTransit);
+
 export default router;
