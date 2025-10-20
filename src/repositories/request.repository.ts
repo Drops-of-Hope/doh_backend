@@ -24,7 +24,7 @@ const RequestRepository = {
       data: {
         id: randomUUID(),
         bloodGroup: data.bloodGroup as BloodGroup,
-  unitsRequired: data.unitsRequired,
+        unitsRequired: data.unitsRequired,
         urgencyLevel: data.urgencyLevel as UrgencyLevel,
         requestReason: data.requestReason,
         requestDeliveryDate: new Date(data.requestDeliveryDate as string | Date),
@@ -38,10 +38,7 @@ const RequestRepository = {
         ...(data.requestingBloodBankId
           ? { BloodBank: { connect: { id: data.requestingBloodBankId } } }
           : {}),
-        status: (data.status as RequestStatus) || undefined,
-        medicalEstablishmentId: data.medicalEstablishmentId,
-        requestingBloodBankId: data.requestingBloodBankId || undefined,
-        updatedAt: new Date(),
+        // Note: Do not include raw foreign key fields when using checked create input with relation connects
       },
       include: {
         MedicalEstablishment: true,
