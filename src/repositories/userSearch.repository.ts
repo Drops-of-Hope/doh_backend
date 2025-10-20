@@ -19,19 +19,22 @@ export const UserSearchRepository = {
 
     const skip = (page - 1) * limit;
     const where: Prisma.UserWhereInput = {};
+    const andConditions: Prisma.UserWhereInput[] = [];
 
     // Text search across multiple fields
     if (q) {
-      where.OR = [
-        { name: { contains: q, mode: 'insensitive' } },
-        { email: { contains: q, mode: 'insensitive' } },
-        { nic: { contains: q, mode: 'insensitive' } },
-        {
-          userDetails: {
-            phoneNumber: { contains: q, mode: 'insensitive' },
+      andConditions.push({
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+          { nic: { contains: q, mode: 'insensitive' } },
+          {
+            userDetails: {
+              phoneNumber: { contains: q, mode: 'insensitive' },
+            },
           },
-        },
-      ];
+        ],
+      });
     }
 
     // Blood group filter
@@ -51,16 +54,27 @@ export const UserSearchRepository = {
 
     // Location filters
     if (district || city) {
-      where.userDetails = {
-        ...(district && { district: district as District }),
-        ...(city && { city: { contains: city, mode: 'insensitive' } }),
-      };
+      const locationFilter: Prisma.UserDetailWhereInput = {};
+      if (district) {
+        locationFilter.district = district as District;
+      }
+      if (city) {
+        locationFilter.city = { contains: city, mode: 'insensitive' };
+      }
+      andConditions.push({
+        userDetails: locationFilter,
+      });
     }
 
     // Eligibility filter
     if (eligibleOnly) {
       where.nextEligible = { lte: new Date() };
       where.isActive = true;
+    }
+
+    // Combine all AND conditions
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     const [users, total] = await Promise.all([
