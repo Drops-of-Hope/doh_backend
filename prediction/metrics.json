@@ -1,0 +1,143 @@
+{
+  "Blood_Requests_est": {
+    "model_file": "model_requests.json",
+    "mae": 4967.302504595588,
+    "r2": -1.2495475910286098,
+    "feature_importance": [
+      {
+        "feature": "PrevMonthDemand",
+        "importance": 0.2141
+      },
+      {
+        "feature": "MonthSin",
+        "importance": 0.2024
+      },
+      {
+        "feature": "Rolling6DemandAvg",
+        "importance": 0.1895
+      },
+      {
+        "feature": "MonthCos",
+        "importance": 0.1215
+      },
+      {
+        "feature": "Rolling3DemandAvg",
+        "importance": 0.0923
+      },
+      {
+        "feature": "PrevYearDemand",
+        "importance": 0.0852
+      },
+      {
+        "feature": "FestivalMonth",
+        "importance": 0.0472
+      },
+      {
+        "feature": "MonthNum",
+        "importance": 0.0253
+      },
+      {
+        "feature": "Quarter",
+        "importance": 0.0225
+      },
+      {
+        "feature": "HolidayMonth",
+        "importance": 0.0
+      }
+    ]
+  },
+  "RCC_Issues_est": {
+    "model_file": "model_rcc_issues.json",
+    "mae": 2489.503791360294,
+    "r2": -1.2763525524626984,
+    "feature_importance": [
+      {
+        "feature": "PrevMonthDemand",
+        "importance": 0.2121
+      },
+      {
+        "feature": "MonthSin",
+        "importance": 0.1952
+      },
+      {
+        "feature": "Rolling6DemandAvg",
+        "importance": 0.1948
+      },
+      {
+        "feature": "MonthCos",
+        "importance": 0.1216
+      },
+      {
+        "feature": "Rolling3DemandAvg",
+        "importance": 0.0945
+      },
+      {
+        "feature": "PrevYearDemand",
+        "importance": 0.0866
+      },
+      {
+        "feature": "FestivalMonth",
+        "importance": 0.0467
+      },
+      {
+        "feature": "MonthNum",
+        "importance": 0.0257
+      },
+      {
+        "feature": "Quarter",
+        "importance": 0.0227
+      },
+      {
+        "feature": "HolidayMonth",
+        "importance": 0.0
+      }
+    ]
+  },
+  "Total_Component_Issues_est": {
+    "model_file": "model_total_issues.json",
+    "mae": 4111.896599264706,
+    "r2": -1.2580714558701627,
+    "feature_importance": [
+      {
+        "feature": "PrevMonthDemand",
+        "importance": 0.2136
+      },
+      {
+        "feature": "MonthSin",
+        "importance": 0.201
+      },
+      {
+        "feature": "Rolling6DemandAvg",
+        "importance": 0.191
+      },
+      {
+        "feature": "MonthCos",
+        "importance": 0.1207
+      },
+      {
+        "feature": "Rolling3DemandAvg",
+        "importance": 0.0946
+      },
+      {
+        "feature": "PrevYearDemand",
+        "importance": 0.0826
+      },
+      {
+        "feature": "FestivalMonth",
+        "importance": 0.0488
+      },
+      {
+        "feature": "MonthNum",
+        "importance": 0.0247
+      },
+      {
+        "feature": "Quarter",
+        "importance": 0.0228
+      },
+      {
+        "feature": "HolidayMonth",
+        "importance": 0.0
+      }
+    ]
+  }
+}
