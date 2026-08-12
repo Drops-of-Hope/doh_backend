@@ -47,6 +47,9 @@ router.post("/:userId/donation-completed", UserController.updateDonationStats);
 // Get badge information for user
 router.get("/:userId/badge-info", UserController.getBadgeInfo);
 
+// Get campaign-organizer badge information for user
+router.get("/:userId/organizer-badge-info", UserController.getOrganizerBadgeInfo);
+
 // Get user appointments (protected route)
 router.get("/appointments", authenticateToken, UserController.getUserAppointments);
 

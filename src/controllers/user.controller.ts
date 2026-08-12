@@ -114,7 +114,7 @@ export const UserController = {
           }
           return [];
         })();
-        if (scimRoles.includes("Internal/CampaignOrg")) {
+        if (scimRoles.includes("CampaignOrg") || scimRoles.includes("Internal/CampaignOrg")) {
           res.status(400).json({
             success: false,
             message: "User already has Campaign Organizer role",
@@ -928,6 +928,32 @@ export const UserController = {
       console.error("Error in getBadgeInfo:", error);
       res.status(500).json({
         message: "Failed to get badge information",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  },
+
+  // GET /users/:userId/organizer-badge-info - Get campaign-organizer badge information for user
+  getOrganizerBadgeInfo: async (req: Request, res: Response): Promise<void> => {
+    try {
+      const { userId } = req.params;
+
+      if (!userId) {
+        res.status(400).json({
+          message: "User ID is required",
+        });
+        return;
+      }
+
+      const badgeInfo = await UserService.getUserOrganizerBadgeInfo(userId);
+
+      res.status(200).json({
+        data: badgeInfo,
+      });
+    } catch (error) {
+      console.error("Error in getOrganizerBadgeInfo:", error);
+      res.status(500).json({
+        message: "Failed to get organizer badge information",
         error: error instanceof Error ? error.message : "Unknown error",
       });
     }

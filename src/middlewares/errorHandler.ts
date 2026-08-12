@@ -1,28 +1,44 @@
 /**
- * Global Error Handler Middleware
- * 
- * This middleware provides centralized error handling for the application.
- * It manages:
- * - Standardized error response formatting
- * - Error logging and monitoring integration
- * - Security-conscious error message filtering
- * - HTTP status code mapping
- * - Development vs production error detail levels
- * - Error categorization and classification
- * 
- * Error types handled:
- * - Authentication and authorization errors
- * - Database connection and query errors
- * - Validation and input errors
- * - Third-party service integration errors
- * - Unexpected application errors
- * - Rate limiting and quota exceeded errors
- * 
- * Features:
- * - Structured error logging with context
- * - Error correlation IDs for tracking
- * - Sensitive information filtering in production
- * - Custom error types and status code mapping
- * - Integration with monitoring services (e.g., Sentry)
- * - Graceful degradation for service unavailability
+ * Centralized Error Handling Middleware
+ *
+ * Express 4-argument error handler registered after all routes in app.ts.
+ * Converts unhandled thrown errors into the standard JSON error envelope
+ * `{ success: false, error, message }` instead of Express's default HTML
+ * 500 page, and hides internal error details in production.
  */
+
+import { Request, Response, NextFunction } from "express";
+import { env } from "../config/env.js";
+
+export interface HttpError extends Error {
+  status?: number;
+  statusCode?: number;
+}
+
+export const errorHandler = (
+  err: HttpError,
+  req: Request,
+  res: Response,
+  // Express identifies an error handler by its arity — `next` must stay even
+  // though it is unused.
+  _next: NextFunction
+): void => {
+  const status = err.status ?? err.statusCode ?? 500;
+
+  console.error(`Unhandled error on ${req.method} ${req.originalUrl}:`, err);
+
+  if (res.headersSent) {
+    return;
+  }
+
+  res.status(status).json({
+    success: false,
+    error: status >= 500 ? "Internal server error" : err.message,
+    message:
+      status >= 500 && env.NODE_ENV === "production"
+        ? "An unexpected error occurred"
+        : err.message,
+  });
+};
+
+export default errorHandler;

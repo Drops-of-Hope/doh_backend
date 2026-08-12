@@ -24,10 +24,55 @@
  */
 
 import { Request, Response, NextFunction } from "express";
-import jwt, { JwtPayload } from "jsonwebtoken";
-import { PrismaClient } from "@prisma/client";
+import jwt, { JwtPayload, JwtHeader, SigningKeyCallback } from "jsonwebtoken";
+import jwksClient from "jwks-rsa";
+import { prisma } from "../config/db.js";
+import { env } from "../config/env.js";
 
-const prisma = new PrismaClient();
+// Asgardeo publishes its RS256 signing keys at the JWKS endpoint. Keys are
+// cached (1h) and rate-limited so verification does not hit the network on
+// every request.
+const asgardeoJwks = jwksClient({
+  jwksUri: env.ASGARDEO_JWKS_URI,
+  cache: true,
+  cacheMaxAge: 60 * 60 * 1000,
+  rateLimit: true,
+  jwksRequestsPerMinute: 10,
+});
+
+function getAsgardeoSigningKey(
+  header: JwtHeader,
+  callback: SigningKeyCallback
+): void {
+  asgardeoJwks.getSigningKey(header.kid, (err, key) => {
+    if (err || !key) {
+      callback(err ?? new Error("Signing key not found"));
+      return;
+    }
+    callback(null, key.getPublicKey());
+  });
+}
+
+function verifyAsgardeoToken(token: string): Promise<JwtPayload> {
+  return new Promise((resolve, reject) => {
+    jwt.verify(
+      token,
+      getAsgardeoSigningKey,
+      {
+        algorithms: ["RS256"],
+        issuer: env.ASGARDEO_ISSUER,
+        ...(env.ASGARDEO_AUDIENCE ? { audience: env.ASGARDEO_AUDIENCE } : {}),
+      },
+      (err, payload) => {
+        if (err || !payload || typeof payload === "string") {
+          reject(err ?? new jwt.JsonWebTokenError("Invalid token payload"));
+          return;
+        }
+        resolve(payload);
+      }
+    );
+  });
+}
 
 // Define user interface for request
 interface AuthenticatedUser {
@@ -83,24 +128,13 @@ export const authenticateToken = async (
                            decodedToken.header.alg === 'RS256';
     
     if (isAsgardeoToken) {
-      // This is an Asgardeo token (RS256) - just decode for now
-      // TODO: Implement proper JWKS verification for production
-      console.log('Processing Asgardeo RS256 token');
-      decoded = jwt.decode(token) as DecodedToken;
-      
-      if (!decoded) {
-        res.status(401).json({
-          success: false,
-          error: "Invalid token",
-          message: "Unable to decode Asgardeo token",
-        });
-        return;
-      }
+      // Asgardeo token (RS256): verify the signature against Asgardeo's JWKS.
+      decoded = (await verifyAsgardeoToken(token)) as DecodedToken;
     } else {
-      // This is a local token (HS256) - verify with secret
-      console.log('Processing local HS256 token');
-      const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
-      decoded = jwt.verify(token, JWT_SECRET) as DecodedToken;
+      // Local token (HS256): verify with the configured secret.
+      decoded = jwt.verify(token, env.JWT_SECRET, {
+        algorithms: ["HS256"],
+      }) as DecodedToken;
     }
     
     // Find user in database
@@ -169,8 +203,15 @@ export const authenticateToken = async (
     next();
   } catch (error) {
     console.error("Authentication error:", error);
-    
-    if (error instanceof jwt.JsonWebTokenError) {
+
+    // jwt.JsonWebTokenError covers bad signatures/expiry; jwks-rsa throws its
+    // own error types (e.g. SigningKeyNotFoundError) for unknown key IDs —
+    // both mean the caller's token is not trustworthy.
+    const isTokenError =
+      error instanceof jwt.JsonWebTokenError ||
+      (error instanceof Error && error.name.includes("SigningKey"));
+
+    if (isTokenError) {
       res.status(401).json({
         success: false,
         error: "Invalid token",

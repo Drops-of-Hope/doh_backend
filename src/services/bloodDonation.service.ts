@@ -8,6 +8,7 @@ export const BloodDonationService = {
     pointsEarned: number;
     startTime: Date;
     endTime: Date;
+    emergencyRequestId?: string;
     bloodUnits: Array<{
       id: string;
       inventoryId?: string;
@@ -38,6 +39,7 @@ export const BloodDonationService = {
       pointsEarned: data.pointsEarned,
       startTime: data.startTime,
       endTime: data.endTime,
+      emergencyRequestId: data.emergencyRequestId,
       bloodUnits: processedBloodUnits,
     });
   },

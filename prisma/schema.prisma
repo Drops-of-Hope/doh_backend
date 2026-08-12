@@ -9,37 +9,39 @@ datasource db {
 }
 
 model User {
-  id                     String                  @id @default(uuid())
-  nic                    String                  @unique
-  email                  String                  @unique
-  name                   String
-  bloodGroup             BloodGroup
-  createdAt              DateTime                @default(now())
-  donationBadge          DonationBadge           @default(BRONZE)
-  isActive               Boolean                 @default(true)
-  nextEligible           DateTime?
-  profileImageUrl        String?
-  totalDonations         Int                     @default(0)
-  totalPoints            Int                     @default(0)
-  updatedAt              DateTime                @updatedAt
-  activities             Activity[]
-  appointments           Appointment[]
-  auditLogs              AuditLog[]
-  bloodDonations         BloodDonation[]
-  bloodDonationForms     BloodDonationForm[]
-  CalibrationLog         CalibrationLog[]
-  campaignsOrganized     Campaign[]
-  campaignParticipations CampaignParticipation[]
-  emergencyRequests      EmergencyRequest[]
-  EquipmentAssignment    EquipmentAssignment[]
-  feedbacks              Feedback[]
-  healthVitals           HealthVital[]
-  MaintenanceLog         MaintenanceLog[]
-  notifications          Notification[]
-  qrScans                QRScan[]
-  StaffAssignment        StaffAssignment[]
-  userDetails            UserDetail?
-  homeStats              UserHomeStats?
+  id                      String                  @id @default(uuid())
+  nic                     String                  @unique
+  email                   String                  @unique
+  name                    String
+  bloodGroup              BloodGroup
+  createdAt               DateTime                @default(now())
+  donationBadge           DonationBadge           @default(BRONZE)
+  emergencyResponderBadge Boolean                 @default(false)
+  isActive                Boolean                 @default(true)
+  nextEligible            DateTime?
+  profileImageUrl         String?
+  totalDonations          Int                     @default(0)
+  totalPoints             Int                     @default(0)
+  updatedAt               DateTime                @updatedAt
+  activities              Activity[]
+  appointments            Appointment[]
+  auditLogs               AuditLog[]
+  bloodDonations          BloodDonation[]
+  bloodDonationForms      BloodDonationForm[]
+  CalibrationLog          CalibrationLog[]
+  campaignsOrganized      Campaign[]
+  campaignParticipations  CampaignParticipation[]
+  devicePushTokens        DevicePushToken[]
+  emergencyRequests       EmergencyRequest[]
+  EquipmentAssignment     EquipmentAssignment[]
+  feedbacks               Feedback[]
+  healthVitals            HealthVital[]
+  MaintenanceLog          MaintenanceLog[]
+  notifications           Notification[]
+  qrScans                 QRScan[]
+  StaffAssignment         StaffAssignment[]
+  userDetails             UserDetail?
+  homeStats               UserHomeStats?
 }
 
 model UserDetail {
@@ -95,6 +97,16 @@ model Notification {
   user      User             @relation(fields: [userId], references: [id])
 }
 
+model DevicePushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  platform  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id])
+}
+
 model CampaignParticipation {
   id                String              @id @default(uuid())
   userId            String
@@ -147,6 +159,7 @@ model EmergencyRequest {
   hospital            Hospital            @relation(fields: [hospitalId], references: [id])
   requestedBy         User                @relation(fields: [requestedById], references: [id])
   responses           EmergencyResponse[]
+  bloodDonations      BloodDonation[]
 }
 
 model EmergencyResponse {
@@ -225,17 +238,19 @@ model HealthVital {
 }
 
 model BloodDonation {
-  id                String            @id @default(uuid())
-  bdfId             String            @unique
-  userId            String?
-  numberOfDonations Int?
-  pointsEarned      Int
-  startTime         DateTime
-  endTime           DateTime
-  bloods            Blood[]
-  bloodDonationForm BloodDonationForm @relation(fields: [bdfId], references: [id])
-  user              User?             @relation(fields: [userId], references: [id])
-  systemLogs        SystemLog[]
+  id                 String            @id @default(uuid())
+  bdfId              String            @unique
+  userId             String?
+  numberOfDonations  Int?
+  pointsEarned       Int
+  startTime          DateTime
+  endTime            DateTime
+  emergencyRequestId String?
+  bloods             Blood[]
+  bloodDonationForm  BloodDonationForm @relation(fields: [bdfId], references: [id])
+  emergencyRequest   EmergencyRequest? @relation(fields: [emergencyRequestId], references: [id])
+  user               User?             @relation(fields: [userId], references: [id])
+  systemLogs         SystemLog[]
 }
 
 model SystemLog {

@@ -7,6 +7,7 @@ import {
   UserExistsResponse
 } from "../types/user.types.js";
 import { BadgeService } from "./badge.service.js";
+import { OrganizerBadgeService } from "./organizerBadge.service.js";
 import { ActivityService } from "./activity.service.js";
 import { prisma } from "../config/db.js";
 
@@ -121,15 +122,16 @@ export const UserService = {
 
   // Update user donation stats and badge after a successful donation
   updateDonationStats: async (
-    userId: string, 
+    userId: string,
     pointsEarned: number = 100,
     donationData?: {
       campaignTitle?: string;
       location?: string;
       bloodType?: string;
       volume?: number;
-    }
-  ): Promise<{ user: UserResponse; badgePromoted: boolean; oldBadge?: string; newBadge?: string }> => {
+    },
+    emergencyRequestId?: string
+  ): Promise<{ user: UserResponse; badgePromoted: boolean; oldBadge?: string; newBadge?: string; emergencyBadgeEarned: boolean }> => {
     // Get current user data
     const currentUser = await UserRepository.getUserById(userId);
     if (!currentUser) {
@@ -205,6 +207,40 @@ export const UserService = {
       // Don't fail the donation if activity creation fails
     }
 
+    // Award the Emergency Responder badge the first time a donation is linked
+    // to an emergency request the user responded to
+    let emergencyBadgeEarned = false;
+    if (emergencyRequestId && !currentUser.emergencyResponderBadge) {
+      emergencyBadgeEarned = true;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { emergencyResponderBadge: true },
+      });
+
+      try {
+        await ActivityService.createActivity({
+          userId,
+          type: "BADGE_EARNED",
+          title: "Emergency Responder badge earned!",
+          description: "Thank you for responding to an emergency blood request and completing your donation.",
+          metadata: { badge: "EMERGENCY_RESPONDER", emergencyRequestId },
+        });
+
+        await prisma.notification.create({
+          data: {
+            userId,
+            type: "BADGE_EARNED",
+            title: "Emergency Responder Badge Earned!",
+            message: "You responded to an emergency blood request and completed your donation. Thank you for being a lifesaver.",
+            metadata: { badge: "EMERGENCY_RESPONDER", emergencyRequestId },
+          },
+        });
+      } catch (error) {
+        console.error("Error creating emergency badge activity/notification:", error);
+        // Don't fail the donation if activity/notification creation fails
+      }
+    }
+
     const isProfileComplete = await UserRepository.isProfileComplete(updatedUser.id);
 
     const userResponse: UserResponse = {
@@ -226,6 +262,7 @@ export const UserService = {
       badgePromoted,
       oldBadge: badgePromoted ? oldBadge : undefined,
       newBadge: badgePromoted ? newBadge : undefined,
+      emergencyBadgeEarned,
     };
   },
 
@@ -247,6 +284,30 @@ export const UserService = {
       nextBadge: nextBadgeInfo,
       totalDonations: user.totalDonations,
       allBadges: BadgeService.getAllBadgeThresholds(),
+      emergencyResponderBadge: user.emergencyResponderBadge,
+    };
+  },
+
+  // Get campaign-organizer badge information for a user
+  getUserOrganizerBadgeInfo: async (userId: string) => {
+    const user = await UserRepository.getUserById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const completedCampaigns = await OrganizerBadgeService.countCompletedCampaigns(userId);
+    const currentTier = OrganizerBadgeService.calculateTier(completedCampaigns);
+    const tierInfo = OrganizerBadgeService.getTierDisplayInfo(currentTier);
+    const nextTierInfo = OrganizerBadgeService.getNextTierInfo(currentTier, completedCampaigns);
+
+    return {
+      currentBadge: {
+        ...tierInfo,
+        badge: currentTier,
+      },
+      nextBadge: nextTierInfo,
+      completedCampaigns,
+      allBadges: OrganizerBadgeService.getAllTierThresholds(),
     };
   },
 };

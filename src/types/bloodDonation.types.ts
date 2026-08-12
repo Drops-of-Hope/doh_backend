@@ -5,6 +5,7 @@ export interface CreateBloodDonationInput {
   pointsEarned: number;
   startTime: Date;
   endTime: Date;
+  emergencyRequestId?: string;
   bloodUnits: Array<{
     id: string;
     inventoryId: string | null;

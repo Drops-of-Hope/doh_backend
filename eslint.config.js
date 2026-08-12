@@ -37,4 +37,14 @@ export default [
       // Your custom rules
     },
   },
+  {
+    rules: {
+      // Allow intentionally unused parameters when prefixed with _
+      // (e.g. Express error handlers must keep 4 args to be recognized).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+    },
+  },
 ];

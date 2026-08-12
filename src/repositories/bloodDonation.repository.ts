@@ -13,6 +13,7 @@ export const BloodDonationRepository = {
           pointsEarned: data.pointsEarned,
           startTime: data.startTime,
           endTime: data.endTime,
+          emergencyRequestId: data.emergencyRequestId,
         },
       });
 

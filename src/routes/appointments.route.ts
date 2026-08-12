@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { AppointmentsController } from "../controllers/appointments.controller.js";
 import { authenticateToken } from "../middlewares/authenticateUser.js";
+import {
+  validateRequest,
+  appointmentCreateSchema,
+} from "../middlewares/validateRequest.js";
 
 const router = Router();
 
@@ -8,7 +12,12 @@ const router = Router();
 router.get("/user", authenticateToken, AppointmentsController.getAuthenticatedUserAppointments);
 
 // Create new appointment (protected route)
-router.post("/create", authenticateToken, AppointmentsController.createAuthenticatedAppointment);
+router.post(
+  "/create",
+  authenticateToken,
+  validateRequest(appointmentCreateSchema),
+  AppointmentsController.createAuthenticatedAppointment
+);
 
 // Update/reschedule appointment (protected route)
 router.put("/:id", authenticateToken, AppointmentsController.updateAppointment);
