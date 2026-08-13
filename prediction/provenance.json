@@ -1,0 +1,38 @@
+{
+  "generated_at": "2026-08-12T15:03:56.017325+00:00",
+  "source_mode": "db",
+  "main_api_base": "http://localhost:5000",
+  "record_counts": {
+    "BloodDonation": 291,
+    "Blood": 243,
+    "Request": 3,
+    "Campaign": 1,
+    "current_stock_groups": 8
+  },
+  "date_ranges": {
+    "donations": [
+      "2026-03-18T10:00:00",
+      "2026-07-31T16:20:00"
+    ],
+    "requests": [
+      "2026-07-18T10:11:39.148000",
+      "2026-07-18T10:11:39.148000"
+    ]
+  },
+  "current_stock": {
+    "O+": 23,
+    "AB-": 2,
+    "B+": 62,
+    "A-": 3,
+    "O-": 3,
+    "A+": 22,
+    "AB+": 10,
+    "B-": 4
+  },
+  "aggregation": {
+    "supply": "Blood unit records counted per donor blood group per month of BloodDonation.startTime (UTC)",
+    "demand": "Request.unitsRequired summed per blood group per month of Request.createdAt (UTC)",
+    "wastage": "Blood units with disposed=true or (consumed=false and expiryDate passed), attributed to the month of the unit's expiryDate (UTC)",
+    "zero_rows": "months inside the observed span with no records carry a real count of 0 (absence of records, not estimation)"
+  }
+}

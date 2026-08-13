@@ -30,6 +30,7 @@ model User {
   CalibrationLog         CalibrationLog[]
   campaignsOrganized     Campaign[]
   campaignParticipations CampaignParticipation[]
+  DevicePushToken        DevicePushToken[]
   emergencyRequests      EmergencyRequest[]
   EquipmentAssignment    EquipmentAssignment[]
   feedbacks              Feedback[]
@@ -531,6 +532,17 @@ model Request {
   updatedAt              DateTime
   MedicalEstablishment   MedicalEstablishment @relation(fields: [medicalEstablishmentId], references: [id])
   BloodBank              BloodBank?           @relation(fields: [requestingBloodBankId], references: [id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model DevicePushToken {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  platform  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  User      User     @relation(fields: [userId], references: [id])
 }
 
 enum BloodGroup {

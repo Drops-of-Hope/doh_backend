@@ -1,0 +1,14 @@
+{
+  "as_of_utc": "2026-08-12T15:03:56.017325+00:00",
+  "definition": "Blood units status=SAFE, consumed=false, disposed=false, expiryDate >= start of today (matches POST /api/blood/stock-counts semantics)",
+  "opening_stock": {
+    "A+": 22,
+    "B+": 62,
+    "AB+": 10,
+    "O+": 23,
+    "A-": 3,
+    "B-": 4,
+    "AB-": 2,
+    "O-": 3
+  }
+}
